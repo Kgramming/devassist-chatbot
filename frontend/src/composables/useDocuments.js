@@ -127,6 +127,10 @@ export function useDocuments() {
     if (doc) doc._error = null
   }
 
+  function clearGlobalError() {
+    globalError.value = null
+  }
+
   return {
     documents,
     globalError,
@@ -135,5 +139,6 @@ export function useDocuments() {
     refresh,
     validateFile,
     dismissError,
+    clearGlobalError,
   }
 }

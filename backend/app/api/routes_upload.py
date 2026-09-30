@@ -9,6 +9,11 @@ from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+from app.models.schemas import (
+    DeleteDocumentResponse,
+    DocumentsListResponse,
+    UploadSuccessResponse,
+)
 from app.rag.ingestion import (
     EmbeddingError,
     FileTooLargeError,
@@ -23,8 +28,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+@router.post("/upload", response_model=UploadSuccessResponse)
+async def upload_file(file: UploadFile = File(...)) -> UploadSuccessResponse:
     try:
         # Bound the read: max size + 1 byte so we can detect overflow
         # without loading an arbitrarily large body into memory.
@@ -72,13 +77,13 @@ async def upload_file(file: UploadFile = File(...)):
         )
 
 
-@router.get("/documents")
-async def list_documents() -> dict:
+@router.get("/documents", response_model=DocumentsListResponse)
+async def list_documents() -> DocumentsListResponse:
     return {"documents": ingestion_service.list_documents()}
 
 
-@router.delete("/documents/{document_id}")
-async def delete_document(document_id: str):
+@router.delete("/documents/{document_id}", response_model=DeleteDocumentResponse)
+async def delete_document(document_id: str) -> DeleteDocumentResponse:
     if ingestion_service.delete_document(document_id):
         return {"status": "success", "document_id": document_id}
     return JSONResponse(

@@ -83,7 +83,7 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error'])
             v-if="backendState === 'online'"
             class="font-mono text-[10px]"
             :class="groqConfigured ? 'text-emerald-400/80' : 'text-amber-300/80'"
-            :title="groqConfigured ? 'Groq API key is configured on the backend' : 'Groq API key is NOT configured — chat will fail'"
+            :title="groqConfigured ? 'Groq API key is configured on the backend' : 'Groq API key is NOT configured — chat will use clearly-marked mock responses'"
           >
             {{ groqConfigured ? '● groq ready' : '● groq missing' }}
           </span>

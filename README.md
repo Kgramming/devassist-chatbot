@@ -73,7 +73,7 @@ REST + WebSocket contract: [`docs/API.md`](docs/API.md).
 | Backend | FastAPI + uvicorn | 0.142.2 / 0.54.0 |
 | Config | pydantic-settings | 2.15.0 |
 | HTTP client | httpx (Groq streaming) | 0.28.1 |
-| LLM | Groq Cloud API, `llama-3.3-70b-versatile` | — |
+| LLM | Groq Cloud API, `openai/gpt-oss-120b` | — |
 | Embeddings | sentence-transformers `all-MiniLM-L6-v2` (local, CPU) | 6.1.0 |
 | Vector store | faiss-cpu (`IndexFlatIP`, 384-dim) | 1.15.1 |
 | PDF parsing | pypdf | 6.19.0 |
@@ -110,19 +110,22 @@ devassist-chatbot/
 │   ├── requirements.txt         # pinned deps (see torch CPU note below)
 │   └── .env                     # real secrets — git-ignored, never committed
 ├── frontend/
-│   └── src/
-│       ├── App.vue              # layout shell (Sidebar + ChatWindow + ChatInput)
-│       ├── components/          # ChatWindow, ChatMessage, MarkdownBlocks,
-│       │                        # CodeBlock, ChatInput, Sidebar, UploadPanel,
-│       │                        # DocumentList, StatusBadge
-│       ├── composables/         # useWebSocket, useChat, useDocuments
-│       ├── services/            # config.js (URLs), api.js (REST), markdown.js
-│       └── assets/main.css      # TailwindCSS v4 entry
+│   ├── src/
+│   │   ├── App.vue              # layout shell (Sidebar + ChatWindow + ChatInput)
+│   │   ├── components/          # ChatWindow, ChatMessage, MarkdownBlocks,
+│   │   │                        # CodeBlock, ChatInput, Sidebar, UploadPanel,
+│   │   │                        # DocumentList, StatusBadge
+│   │   ├── composables/         # useWebSocket, useChat, useDocuments
+│   │   ├── services/            # config.js (URLs), api.js (REST), markdown.js
+│   │   └── assets/main.css      # TailwindCSS v4 entry
+│   └── tests/                   # 27 frontend unit tests (`npm test`)
 ├── docs/
 │   ├── sample-knowledge.md      # original asyncio reference doc for RAG demo
 │   ├── ARCHITECTURE.md          # system, ingestion, RAG, WS, security
 │   ├── API.md                   # REST + WebSocket reference with error tables
 │   ├── EVALUATION_NOTES.md      # design rationale + likely evaluator Q&A
+│   ├── FINAL_AUDIT.md           # SRS compliance audit with live verification
+│   ├── FINAL_RELEASE_CHECKLIST.md # release sign-off checklist
 │   └── IMPLEMENTATION_CHECKLIST.md # spec requirement → status → evidence
 └── .env.example                 # placeholders only (committed)
 ```
@@ -155,7 +158,7 @@ Key variables (`backend/.env`; all knobs documented in
 | Variable | Default | Notes |
 |---|---|---|
 | `GROQ_API_KEY` | *(empty)* | Empty ⇒ mock mode (no quota used) |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Change without code edits |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Change without code edits |
 | `PORT` | `8000` | Backend port |
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | CORS allow-origin |
 | `MAX_FILE_SIZE_MB` | `5` | Upload cap |
@@ -208,6 +211,8 @@ Production build: `npm run build` → `frontend/dist/`.
 
 ## 12. Running tests
 
+**Backend** (62 tests):
+
 ```bash
 cd backend
 .venv/bin/pytest -q
@@ -224,6 +229,20 @@ keyword blacklist, mocked Groq SSE streaming, 401/429/500/timeout/network
 mapping, no traceback leakage, WebSocket protocol (tokens→done, sources,
 invalid payloads, binary frames, clean disconnect), REST upload/delete
 success and error paths.
+
+**Frontend** (28 tests):
+
+```bash
+cd frontend
+npm install
+npm test
+```
+
+28 unit tests in `frontend/tests/unit.mjs` (Node + jsdom, no browser
+needed): markdown rendering incl. XSS sanitization (script tags, event
+handlers, `javascript:` URLs), and the `useChat` state machine — streaming
+tokens, sources, done/error, send-blocked-while-generating, cancel, retry,
+malformed token payloads, blank-message rejection.
 
 ## 13. RAG pipeline explanation
 
@@ -329,6 +348,13 @@ explicitly warns against pretending to). Instead:
   messages; a bad upload or a dead LLM can never crash the backend or leak
   internals.
 - **Mock mode** makes the entire demo/test loop runnable with no secrets.
+- **Groq model deviation (documented):** the assignment-era default
+  `llama-3.3-70b-versatile` was retired by Groq — verified live on
+  2026-09-30 (`GET /openai/v1/models` no longer lists it; chat calls fail
+  with HTTP 404 `model_not_found`). The default is now
+  `openai/gpt-oss-120b`, the closest currently-supported chat model, and
+  the full pipeline (auth, streaming, RAG, guardrail) was re-verified
+  against it end-to-end. Override any time with `GROQ_MODEL`.
 
 ## 20. Future improvements
 

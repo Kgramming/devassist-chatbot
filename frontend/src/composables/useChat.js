@@ -6,7 +6,7 @@
 // Sending is blocked while a generation is active. Cancelling closes the
 // socket (the backend cleans up the abandoned stream on disconnect) and
 // marks the partial message stopped. The next send reconnects lazily.
-import { ref } from 'vue'
+import { ref, onUnmounted, getCurrentInstance } from 'vue'
 
 let nextId = 1
 
@@ -14,6 +14,7 @@ export function useChat(ws) {
   const messages = ref([])
   const isGenerating = ref(false)
   let activeId = null
+  const unsubscribers = []
 
   const activeMessage = () =>
     messages.value.find((m) => m.id === activeId) || null
@@ -29,31 +30,40 @@ export function useChat(ws) {
     isGenerating.value = false
   }
 
-  ws.on('token', ({ content }) => {
+  const sub = (type, cb) => unsubscribers.push(ws.on(type, cb))
+
+  sub('token', ({ content }) => {
     const m = activeMessage()
     if (m && m.state === 'streaming') m.content += content ?? ''
   })
-  ws.on('status', ({ message }) => {
+  sub('status', ({ message }) => {
     const m = activeMessage()
     if (m && m.state === 'streaming') m.statusText = message || ''
   })
-  ws.on('sources', ({ chunks }) => {
+  sub('sources', ({ chunks }) => {
     const m = activeMessage()
     if (m && Array.isArray(chunks)) m.sources = chunks
   })
-  ws.on('error', ({ message }) => {
+  sub('error', ({ message }) => {
     finishActive(
       'error',
       message || 'Something went wrong while generating the response.',
     )
   })
-  ws.on('done', () => finishActive('done'))
-  ws.on('close', () => {
+  sub('done', () => finishActive('done'))
+  sub('close', () => {
     const m = activeMessage()
     if (m && m.state === 'streaming' && isGenerating.value) {
       finishActive('error', 'Connection to the chat server was lost.')
     }
   })
+
+  function dispose() {
+    for (const unsub of unsubscribers.splice(0)) unsub()
+  }
+  // Only auto-dispose inside a component; plain unit-test usage has no
+  // component instance.
+  if (getCurrentInstance()) onUnmounted(dispose)
 
   async function sendMessage(text) {
     const trimmed = (text || '').trim()
@@ -113,15 +123,17 @@ export function useChat(ws) {
     ) {
       messages.value.pop()
     }
-    const lastUser = [...messages.value]
-      .reverse()
-      .find((m) => m.role === 'user')
-    if (lastUser) sendMessage(lastUser.content)
+    // Remove the original user message as well — sendMessage() pushes a
+    // fresh copy, so keeping it would duplicate the user's message.
+    const userIdx = messages.value.map((m) => m.role).lastIndexOf('user')
+    if (userIdx === -1) return
+    const [userMsg] = messages.value.splice(userIdx, 1)
+    sendMessage(userMsg.content)
   }
 
   function clearChat() {
     if (!isGenerating.value) messages.value = []
   }
 
-  return { messages, isGenerating, sendMessage, cancel, retryLast, clearChat }
+  return { messages, isGenerating, sendMessage, cancel, retryLast, clearChat, dispose }
 }

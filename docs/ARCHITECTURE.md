@@ -25,7 +25,7 @@ flowchart LR
         CHAT[Chat service<br/>app/services/chat.py]
         GROQ[Groq client<br/>app/services/groq.py]
     end
-    LLM[Groq Cloud API<br/>llama-3.3-70b-versatile]
+    LLM[Groq Cloud API<br/>openai/gpt-oss-120b]
 
     FE -- "POST /upload, GET /documents,<br/>DELETE /documents/{id}, GET /health" --> API
     FE <-- "WS /ws/chat (token/done/error)" --> API
@@ -347,7 +347,7 @@ process env and/or `backend/.env`):
 | Key | Default | Purpose |
 |---|---|---|
 | `GROQ_API_KEY` | `""` | Backend-only secret; empty ⇒ mock mode |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Chat model (changeable without code edits) |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Chat model (changeable without code edits; llama-3.3-70b-versatile retired 2026-09, verified live) |
 | `PORT` | `8000` | Uvicorn port |
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | CORS allow-origin (local dev) |
 | `MAX_FILE_SIZE_MB` | `5` | Upload cap |

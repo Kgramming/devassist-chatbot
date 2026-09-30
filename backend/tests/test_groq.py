@@ -80,7 +80,7 @@ async def test_success_streams_tokens_and_hits_groq_url(monkeypatch):
     tokens = [
         t
         async for t in stream_chat_completion(
-            "dummy-key", "llama-3.3-70b-versatile", [{"role": "user", "content": "hi"}]
+            "dummy-key", "openai/gpt-oss-120b", [{"role": "user", "content": "hi"}]
         )
     ]
     assert tokens == ["Hello", " world"]
@@ -89,7 +89,7 @@ async def test_success_streams_tokens_and_hits_groq_url(monkeypatch):
     assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
     assert captured["method"] == "POST"
     assert captured["json"]["stream"] is True
-    assert captured["json"]["model"] == "llama-3.3-70b-versatile"
+    assert captured["json"]["model"] == "openai/gpt-oss-120b"
     assert captured["headers"]["Authorization"] == "Bearer dummy-key"
 
 

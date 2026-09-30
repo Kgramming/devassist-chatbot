@@ -29,7 +29,7 @@ test files but did not re-execute the suite in this task.
 | TailwindCSS | ✅ Complete | Tailwind v4 via `@tailwindcss/vite`; `src/assets/main.css` entry |
 | Python backend | ✅ Complete | Python 3.12, `backend/.venv` |
 | Async architecture | ✅ Complete | `async` routes/WS handlers; CPU-bound RAG work in `asyncio.to_thread` |
-| Groq Cloud API | ✅ Complete | `https://api.groq.com/openai/v1/chat/completions`, model `llama-3.3-70b-versatile` |
+| Groq Cloud API | ✅ Complete | `https://api.groq.com/openai/v1/chat/completions`, model `openai/gpt-oss-120b` (default; see §8) |
 | FAISS vector store | ✅ Complete | `faiss-cpu==1.15.1`; `app/rag/vectorstore.py` (`IndexFlatIP`, 384-dim) |
 | sentence-transformers/all-MiniLM-L6-v2, local | ✅ Complete | `app/rag/embeddings.py`; lazy local load, never a remote embedding API |
 | Documents: .pdf / .txt / .md | ✅ Complete | `ALLOWED_EXTENSIONS` in `app/rag/ingestion.py`; server + client validation |
@@ -140,7 +140,7 @@ test files but did not re-execute the suite in this task.
 | Never exposed to frontend | ✅ Complete | Frontend only knows `VITE_API_URL`; `services/config.js` comment documents this |
 | Never hardcoded | ✅ Complete | No key literals in the repo (verified by reading config + services) |
 | `.env` for real secret; `.env.example` placeholders; `.env` ignored | ✅ Complete | `backend/.env` exists locally (git-ignored); root `.env.example` + `frontend/.env.example` are placeholders |
-| Model: assignment-specified if available | ⚠️ Partially verified | Default `GROQ_MODEL=llama-3.3-70b-versatile` in `config.py`; model is env-configurable without code changes. **Could not verify live availability of this model from the sandbox** — if retired, set `GROQ_MODEL` to the closest supported chat model and note it in README §8 (the `.env.example` already instructs this) |
+| Model: assignment-specified if available | ✅ Complete | `llama-3.3-70b-versatile` is retired — verified live 2026-09-30 (`GET /models` omits it; chat → HTTP 404 `model_not_found`). Default changed to `openai/gpt-oss-120b` (closest currently-supported chat model) in `config.py` + `.env.example`; deviation documented in README §19 |
 | Invalid API key (401) | ✅ Complete | `GroqAuthError` → friendly message; `test_401_maps_to_auth_error` |
 | Network failure / timeout | ✅ Complete | `GroqNetworkError`; 60s timeout; `test_timeout_maps_to_network_error`, `test_connect_error_maps_to_network_error` |
 | API errors (5xx) | ✅ Complete | `GroqServerError`; `test_500_maps_to_server_error` |

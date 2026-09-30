@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import StatusBadge from './StatusBadge.vue'
 
 const props = defineProps({
@@ -9,6 +9,10 @@ const emit = defineEmits(['remove', 'dismiss-error'])
 
 const confirming = ref(null)
 let confirmTimer = null
+
+onUnmounted(() => {
+  if (confirmTimer) clearTimeout(confirmTimer)
+})
 
 function formatBytes(n) {
   if (n == null) return '—'

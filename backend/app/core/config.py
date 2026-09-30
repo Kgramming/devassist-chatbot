@@ -4,6 +4,8 @@ All settings are read from the process environment and/or a backend/.env file.
 No secrets are ever hardcoded here.
 """
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.env_compat import sanitize_proxy_env
@@ -12,17 +14,24 @@ from app.core.env_compat import sanitize_proxy_env
 # them; must run before any httpx.Client is created. See env_compat.
 sanitize_proxy_env()
 
+# Resolve .env against the backend package directory (not the process CWD),
+# so `backend/.env` is found no matter where uvicorn is launched from.
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_BACKEND_DIR / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
     # --- Groq ---
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    # Default model verified live against the Groq API (2026-09-30):
+    # llama-3.3-70b-versatile was retired (HTTP 404, code=model_not_found).
+    # openai/gpt-oss-120b is the closest currently-supported chat model.
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
 
     # --- Server ---
     PORT: int = 8000
@@ -41,6 +50,9 @@ class Settings(BaseSettings):
 
     # --- Behaviour ---
     MOCK_GROQ: bool = False
+
+    # --- Chat ---
+    MAX_MESSAGE_CHARS: int = 8000
 
     @property
     def max_file_size_bytes(self) -> int:

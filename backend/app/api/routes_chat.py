@@ -27,11 +27,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-MAX_MESSAGE_CHARS = 8000
-
 
 def validate_message(data: object) -> tuple[str | None, str | None]:
     """Return (message, error). error is None when valid."""
+    max_chars = settings.MAX_MESSAGE_CHARS
     if not isinstance(data, dict):
         return None, "Message must be a JSON object like {\"message\": \"...\"}."
     message = data.get("message")
@@ -39,10 +38,10 @@ def validate_message(data: object) -> tuple[str | None, str | None]:
         return None, "\"message\" must be a string."
     if not message.strip():
         return None, "Message is empty. Please type a question."
-    if len(message) > MAX_MESSAGE_CHARS:
+    if len(message) > max_chars:
         return (
             None,
-            f"Message is too long ({len(message)} chars); maximum is {MAX_MESSAGE_CHARS}.",
+            f"Message is too long ({len(message)} chars); maximum is {max_chars}.",
         )
     return message, None
 
@@ -59,7 +58,7 @@ async def _cancel_task(task: asyncio.Task | None) -> None:
 
 
 @router.websocket("/ws/chat")
-async def ws_chat(websocket: WebSocket):
+async def ws_chat(websocket: WebSocket) -> None:
     await websocket.accept()
     logger.info("WS client connected")
     current_task: asyncio.Task | None = None

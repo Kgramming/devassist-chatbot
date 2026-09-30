@@ -20,7 +20,7 @@ const docs = useDocuments()
 // plain objects are NOT unwrapped — `docs.documents.filter` would break).
 const { connectionState } = ws
 const { messages, isGenerating, sendMessage, cancel, retryLast, clearChat } = chat
-const { documents, upload, remove, refresh, dismissError } = docs
+const { documents, globalError, upload, remove, refresh, dismissError, clearGlobalError } = docs
 
 const backendState = ref('checking') // checking | online | offline
 const groqConfigured = ref(false)
@@ -130,6 +130,25 @@ onUnmounted(() => {
           <span class="font-semibold">Backend unreachable</span> at
           <span class="font-mono">{{ API_BASE_URL }}</span> — start the FastAPI
           server (<span class="font-mono">uvicorn app.main:app</span>) to enable chat and uploads.
+        </p>
+      </div>
+
+      <!-- Document-operation error notice (e.g. list/delete failed) -->
+      <div
+        v-if="globalError"
+        class="shrink-0 border-b border-red-500/20 bg-red-500/10 px-4 py-2.5 sm:px-6"
+        role="alert"
+      >
+        <p class="mx-auto flex max-w-3xl items-center justify-between gap-3 text-[12px] leading-relaxed text-red-200">
+          <span>{{ globalError }}</span>
+          <button
+            type="button"
+            @click="clearGlobalError()"
+            aria-label="Dismiss error"
+            class="shrink-0 rounded px-2 py-0.5 font-medium text-red-300 transition-colors hover:bg-white/10 hover:text-red-100"
+          >
+            Dismiss
+          </button>
         </p>
       </div>
 

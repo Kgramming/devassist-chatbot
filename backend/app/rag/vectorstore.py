@@ -14,6 +14,8 @@ import logging
 import faiss
 import numpy as np
 
+from app.rag.embeddings import EMBEDDING_DIM
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +24,7 @@ class DimensionMismatchError(Exception):
 
 
 class VectorStore:
-    def __init__(self, dim: int = 384) -> None:
+    def __init__(self, dim: int = EMBEDDING_DIM) -> None:
         self._dim = dim
         self._index = faiss.IndexFlatIP(dim)
         # Metadata aligned 1:1 with index positions.
