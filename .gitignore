@@ -1,0 +1,31 @@
+# --- Real secrets: never commit these ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# --- Node.js ---
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# --- IDE / editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
