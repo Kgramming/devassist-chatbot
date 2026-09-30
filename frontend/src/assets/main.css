@@ -1,0 +1,191 @@
+@import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono",
+    Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+html,
+body {
+  background-color: #0b0e14;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+}
+
+::selection {
+  background: rgba(52, 211, 153, 0.25);
+}
+
+/* ---- Slim dark scrollbars ---- */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+.chat-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+}
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- Streaming cursor ---- */
+.streaming-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  border-radius: 2px;
+  background: #34d399;
+  animation: cursor-blink 0.9s steps(2, start) infinite;
+}
+@keyframes cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* ---- Markdown typography (assistant messages) ---- */
+.md {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #d4d4d8;
+  overflow-wrap: break-word;
+}
+.md > *:first-child {
+  margin-top: 0;
+}
+.md > *:last-child {
+  margin-bottom: 0;
+}
+.md p {
+  margin: 0.5rem 0;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  color: #f4f4f5;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.md h1 {
+  font-size: 1.25rem;
+  margin: 1rem 0 0.5rem;
+}
+.md h2 {
+  font-size: 1.12rem;
+  margin: 0.9rem 0 0.5rem;
+}
+.md h3 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.4rem;
+}
+.md h4,
+.md h5,
+.md h6 {
+  font-size: 0.9rem;
+  margin: 0.6rem 0 0.35rem;
+}
+.md ul,
+.md ol {
+  margin: 0.5rem 0;
+  padding-left: 1.4rem;
+}
+.md ul {
+  list-style: disc;
+}
+.md ol {
+  list-style: decimal;
+}
+.md li {
+  margin: 0.25rem 0;
+}
+.md li::marker {
+  color: #71717a;
+}
+.md li > ul,
+.md li > ol {
+  margin: 0.25rem 0;
+}
+.md blockquote {
+  margin: 0.6rem 0;
+  padding-left: 0.8rem;
+  border-left: 2px solid rgba(52, 211, 153, 0.5);
+  color: #a1a1aa;
+  font-style: italic;
+}
+.md hr {
+  margin: 1rem 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.md a {
+  color: #6ee7b7;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md a:hover {
+  color: #a7f3d0;
+}
+.md strong {
+  color: #f4f4f5;
+  font-weight: 600;
+}
+.md code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  color: #fcd34d;
+}
+/* Reset inline-code styling inside highlighted blocks */
+.md pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.md table {
+  margin: 0.75rem 0;
+  border-collapse: collapse;
+  font-size: 13px;
+  display: block;
+  overflow-x: auto;
+}
+.md th,
+.md td {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+}
+.md th {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f4f4f5;
+  font-weight: 600;
+}
+
+/* Tame the highlight.js theme inside our code blocks */
+.md pre {
+  margin: 0;
+}
+.md pre code.hljs {
+  background: transparent;
+  padding: 0;
+}

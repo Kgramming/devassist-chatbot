@@ -1,0 +1,152 @@
+<script setup>
+// Layout shell only — all chat/WebSocket/document logic lives in the
+// composables and services this shell wires together.
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useWebSocket } from './composables/useWebSocket.js'
+import { useChat } from './composables/useChat.js'
+import { useDocuments } from './composables/useDocuments.js'
+import { getHealth } from './services/api.js'
+import { API_BASE_URL } from './services/config.js'
+import Sidebar from './components/Sidebar.vue'
+import ChatWindow from './components/ChatWindow.vue'
+import ChatInput from './components/ChatInput.vue'
+import StatusBadge from './components/StatusBadge.vue'
+
+const ws = useWebSocket()
+const chat = useChat(ws)
+const docs = useDocuments()
+
+// Destructure refs so the template auto-unwraps them (nested refs inside
+// plain objects are NOT unwrapped — `docs.documents.filter` would break).
+const { connectionState } = ws
+const { messages, isGenerating, sendMessage, cancel, retryLast, clearChat } = chat
+const { documents, upload, remove, refresh, dismissError } = docs
+
+const backendState = ref('checking') // checking | online | offline
+const groqConfigured = ref(false)
+const sidebarOpen = ref(false)
+let healthTimer = null
+
+const backendOnline = computed(() => backendState.value === 'online')
+const wsLabel = computed(() =>
+  ws.connectionState.value === 'open'
+    ? 'Chat connected'
+    : ws.connectionState.value === 'connecting'
+      ? 'Connecting…'
+      : 'Chat disconnected',
+)
+
+async function checkHealth() {
+  try {
+    const h = await getHealth()
+    backendState.value = 'online'
+    groqConfigured.value = !!h.groq_configured
+  } catch {
+    backendState.value = 'offline'
+  }
+}
+
+function handleSend(text) {
+  sendMessage(text)
+  if (window.innerWidth < 768) sidebarOpen.value = false
+}
+
+function handleSuggestion(text) {
+  handleSend(text)
+}
+
+onMounted(async () => {
+  await checkHealth()
+  refresh()
+  ws.connect() // chat socket; useChat reconnects lazily on send if needed
+  healthTimer = setInterval(checkHealth, 20000)
+})
+
+onUnmounted(() => {
+  if (healthTimer) clearInterval(healthTimer)
+})
+</script>
+
+<template>
+  <div class="flex h-dvh overflow-hidden bg-[#0b0e14] font-sans text-zinc-200 antialiased">
+    <Sidebar
+      :open="sidebarOpen"
+      :documents="documents"
+      :backend-state="backendState"
+      :groq-configured="groqConfigured"
+      @close="sidebarOpen = false"
+      @upload="upload"
+      @remove="remove"
+      @dismiss-error="dismissError"
+    />
+
+    <!-- Main column -->
+    <div class="flex min-w-0 flex-1 flex-col">
+      <!-- Top bar -->
+      <header class="flex shrink-0 items-center gap-2 border-b border-white/5 bg-[#0b0e14]/90 px-3 py-2.5 backdrop-blur sm:px-6">
+        <button
+          type="button"
+          @click="sidebarOpen = true"
+          title="Open sidebar"
+          aria-label="Open sidebar"
+          class="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-100 md:hidden"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-[13px] font-medium text-zinc-200">Programming Q&amp;A</p>
+          <p class="truncate font-mono text-[10px] text-zinc-600">
+            {{ documents.filter((d) => d._status === 'ready').length }} document(s) indexed
+          </p>
+        </div>
+
+        <StatusBadge :state="connectionState" :label="wsLabel" />
+
+        <button
+          v-if="messages.length"
+          type="button"
+          @click="clearChat()"
+          :disabled="isGenerating"
+          title="Clear conversation"
+          aria-label="Clear conversation"
+          class="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Clear
+        </button>
+      </header>
+
+      <!-- Backend unreachable notice (clean state, no crash) -->
+      <div
+        v-if="!backendOnline"
+        class="shrink-0 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2.5 sm:px-6"
+        role="alert"
+      >
+        <p class="mx-auto max-w-3xl text-[12px] leading-relaxed text-amber-200">
+          <span class="font-semibold">Backend unreachable</span> at
+          <span class="font-mono">{{ API_BASE_URL }}</span> — start the FastAPI
+          server (<span class="font-mono">uvicorn app.main:app</span>) to enable chat and uploads.
+        </p>
+      </div>
+
+      <ChatWindow
+        :messages="messages"
+        :is-generating="isGenerating"
+        :backend-online="backendOnline"
+        @retry="retryLast()"
+        @suggestion="handleSuggestion"
+      />
+
+      <ChatInput
+        :disabled="!backendOnline"
+        :is-generating="isGenerating"
+        @send="handleSend"
+        @cancel="cancel()"
+      />
+    </div>
+  </div>
+</template>
