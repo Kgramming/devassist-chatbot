@@ -1,0 +1,23 @@
+# DevAssist Chatbot — backend dependencies (pinned, verified 2026-09-30)
+#
+# Install:
+#   python -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# NOTE: torch must come from the CPU-only wheel index to avoid CUDA bloat:
+#   .venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch
+# (torch==2.14.1+cpu below was installed that way; plain `pip install torch`
+# on PyPI would pull the much larger CUDA build.)
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+fastapi==0.142.2
+uvicorn==0.54.0
+python-multipart==0.0.32
+pydantic-settings==2.15.0
+httpx==0.28.1
+faiss-cpu==1.15.1
+sentence-transformers==6.1.0
+torch==2.14.1+cpu
+pypdf==6.19.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
