@@ -58,24 +58,28 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-cha
         </button>
       </div>
 
-      <!-- Scrollable content -->
-      <div class="chat-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <h2 class="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+      <!-- Content column: fixed sections + independently scrolling document list -->
+      <div class="flex min-h-0 flex-1 flex-col px-4 py-4">
+        <h2 class="mb-2 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
           Knowledge base
         </h2>
-        <UploadPanel :disabled="backendState !== 'online'" @select="(f) => emit('upload', f)" />
+        <div class="shrink-0">
+          <UploadPanel :disabled="backendState !== 'online'" @select="(f) => emit('upload', f)" />
+        </div>
 
-        <h2 class="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <h2 class="mb-2 mt-5 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
           Documents
           <span v-if="documents.length" class="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-300">{{ documents.length }}</span>
         </h2>
-        <DocumentList
-          :documents="documents"
-          @remove="(id) => emit('remove', id)"
-          @dismiss-error="(id) => emit('dismiss-error', id)"
-        />
+        <div class="chat-scroll min-h-0 flex-1 overflow-y-auto">
+          <DocumentList
+            :documents="documents"
+            @remove="(id) => emit('remove', id)"
+            @dismiss-error="(id) => emit('dismiss-error', id)"
+          />
+        </div>
 
-        <div class="mt-5">
+        <div class="mt-5 shrink-0">
           <ChatWorkspace
             :message-count="messageCount"
             :document-count="documents.length"
