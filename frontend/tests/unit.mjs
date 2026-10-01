@@ -219,24 +219,135 @@ const makeFile = (name, size) =>
 {
   // Simulates picking 2 files: upload() called once per file (as App.vue does
   // on each UploadPanel 'select' emit). Each gets an independent entry.
+  // With max 2 concurrent, both start immediately.
   const docs = useDocuments()
   docs.upload(makeFile('one.md', 100))
   docs.upload(makeFile('two.md', 100))
-  await tick()
   const names = docs.documents.value.map((d) => d.filename)
   check('2-file selection creates 2 entries', names.includes('one.md') && names.includes('two.md'), names.join(','))
   check(
     'entries are independent (own temp ids)',
     new Set(docs.documents.value.map((d) => d.document_id)).size === 2,
   )
+  check(
+    '2 files both start (within concurrency limit)',
+    docs.documents.value.every((d) => d._status === 'uploading'),
+    docs.documents.value.map((d) => d._status).join(','),
+  )
 }
 
 {
-  // 9-file selection stress: all 9 tracked independently.
+  // 9-file selection: max 2 concurrent, rest queued.
   const docs = useDocuments()
   for (let i = 0; i < 9; i++) docs.upload(makeFile(`doc${i}.md`, 100))
-  await tick()
-  check('9-file selection creates 9 entries', docs.documents.value.length === 9, String(docs.documents.value.length))
+  const uploading = docs.documents.value.filter((d) => d._status === 'uploading').length
+  const queued = docs.documents.value.filter((d) => d._status === 'queued').length
+  check('9-file: 9 entries tracked', docs.documents.value.length === 9, String(docs.documents.value.length))
+  check('9-file: at most 2 concurrent', uploading <= 2, String(uploading))
+  check('9-file: rest queued', queued === 9 - uploading, `${uploading} uploading, ${queued} queued`)
+}
+
+{
+  // 67 files: queued rather than 67 simultaneous submissions.
+  // Use a mock XHR (stays in-flight) to count actual request starts.
+  let xhrCount = 0
+  class MockXHR {
+    constructor() {
+      xhrCount++
+      this.upload = {}
+    }
+    open() {}
+    setRequestHeader() {}
+    send() {} // never resolves: stays in-flight
+    abort() {
+      if (this.onabort) this.onabort()
+    }
+  }
+  const hadXHR = 'XMLHttpRequest' in global
+  const OrigXHR = global.XMLHttpRequest
+  global.XMLHttpRequest = MockXHR
+  const docs = useDocuments()
+  for (let i = 0; i < 67; i++) docs.upload(makeFile(`bulk${i}.md`, 100))
+  const uploading = docs.documents.value.filter((d) => d._status === 'uploading').length
+  const queued = docs.documents.value.filter((d) => d._status === 'queued').length
+  check('67-file: 67 entries tracked', docs.documents.value.length === 67)
+  check('67-file: only 2 XHRs started', xhrCount === 2, `xhrCount=${xhrCount}`)
+  check('67-file: 65 queued', queued === 65 && uploading === 2, `${uploading} uploading, ${queued} queued`)
+  if (hadXHR) global.XMLHttpRequest = OrigXHR
+  else delete global.XMLHttpRequest
+}
+
+{
+  // Removing a queued file prevents its upload request.
+  let xhrCount = 0
+  class MockXHR {
+    constructor() {
+      xhrCount++
+      this.upload = {}
+    }
+    open() {}
+    setRequestHeader() {}
+    send() {} // never resolves: stays in-flight
+    abort() {
+      if (this.onabort) this.onabort()
+    }
+  }
+  const hadXHR = 'XMLHttpRequest' in global
+  const OrigXHR = global.XMLHttpRequest
+  global.XMLHttpRequest = MockXHR
+  const docs = useDocuments()
+  for (let i = 0; i < 5; i++) docs.upload(makeFile(`q${i}.md`, 100))
+  const queuedEntry = docs.documents.value.find((d) => d._status === 'queued')
+  check('found a queued entry to cancel', !!queuedEntry)
+  const before = xhrCount
+  docs.remove(queuedEntry.document_id)
+  check('queued removal marks cancelled', queuedEntry._status === 'cancelled')
+  check('queued removal sends no request', xhrCount === before, `xhrCount ${before} -> ${xhrCount}`)
+  // The cancelled entry must never start, even as slots free up.
+  // (Active mock uploads never complete, so no slot frees; the entry
+  // was also dropped from the queue.)
+  await new Promise((r) => setTimeout(r, 100))
+  check(
+    'cancelled queued file never started',
+    queuedEntry._status === 'cancelled',
+    queuedEntry._status,
+  )
+  if (hadXHR) global.XMLHttpRequest = OrigXHR
+  else delete global.XMLHttpRequest
+}
+
+{
+  // Aborting an in-flight upload is handled safely (no crash, marked cancelled).
+  let abortCalled = 0
+  class MockXHR {
+    constructor() {
+      this.upload = {}
+    }
+    open() {}
+    setRequestHeader() {}
+    send() {} // never resolves: stays in-flight until aborted
+    abort() {
+      abortCalled++
+      if (this.onabort) this.onabort()
+    }
+  }
+  const hadXHR = 'XMLHttpRequest' in global
+  const OrigXHR = global.XMLHttpRequest
+  global.XMLHttpRequest = MockXHR
+  const docs = useDocuments()
+  docs.upload(makeFile('abortme.md', 100))
+  const entry = docs.documents.value[0]
+  check('in-flight entry has abort controller', !!entry._abortController)
+  docs.remove(entry.document_id)
+  await new Promise((r) => setTimeout(r, 100))
+  check('abort was invoked on the XHR', abortCalled === 1, `abortCalled=${abortCalled}`)
+  check(
+    'aborted in-flight marked cancelled (not crash)',
+    entry._status === 'cancelled',
+    entry._status,
+  )
+  if (hadXHR) global.XMLHttpRequest = OrigXHR
+  else delete global.XMLHttpRequest
 }
 
 {

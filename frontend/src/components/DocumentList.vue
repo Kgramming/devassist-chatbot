@@ -107,6 +107,15 @@ function onRemove(doc) {
               <p class="text-[11px] text-violet-300/90">Indexing — chunking, embedding &amp; building the search index…</p>
             </div>
 
+            <div v-if="doc._status === 'queued'" class="mt-2 flex items-center gap-2" role="status">
+              <span class="h-3 w-3 rounded-full border-2 border-zinc-500/40" aria-hidden="true"></span>
+              <p class="text-[11px] text-zinc-400">Queued — waiting for an upload slot…</p>
+            </div>
+
+            <p v-if="doc._status === 'cancelled'" class="mt-2 text-[11px] leading-snug text-zinc-500" role="status">
+              Cancelled.
+            </p>
+
             <p v-if="doc._status === 'error'" class="mt-2 flex items-start gap-1.5 text-[11px] leading-snug text-red-300" role="alert">
               <span class="flex-1">{{ doc._error || 'Processing failed.' }}</span>
               <button

@@ -17,6 +17,8 @@ const MAP = {
   idle:       { dot: 'bg-zinc-500',    text: 'text-zinc-400',    pulse: false, label: 'Idle' },
   uploading:  { dot: 'bg-sky-400',     text: 'text-sky-300',     pulse: true,  label: 'Uploading' },
   indexing:   { dot: 'bg-violet-400',  text: 'text-violet-300',  pulse: true,  label: 'Indexing…' },
+  queued:     { dot: 'bg-zinc-400',   text: 'text-zinc-400',   pulse: false, label: 'Queued' },
+  cancelled:  { dot: 'bg-zinc-500',   text: 'text-zinc-500',   pulse: false, label: 'Cancelled' },
   generating: { dot: 'bg-emerald-400', text: 'text-emerald-300', pulse: true,  label: 'Generating' },
   ready:      { dot: 'bg-emerald-400', text: 'text-emerald-300', pulse: false, label: 'Ready' },
   error:      { dot: 'bg-red-400',     text: 'text-red-300',     pulse: false, label: 'Error' },

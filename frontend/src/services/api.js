@@ -51,11 +51,25 @@ export function deleteDocument(id) {
  * Returns { promise, cancel }.
  * Resolves with { status, chunks_processed, filename, document_id }.
  * Rejects with an Error carrying the server's `detail` message.
+ * If options.signal (AbortSignal) aborts, the XHR is aborted and the
+ * promise rejects with 'Upload cancelled.' Note: aborting stops the
+ * browser request, but the server may still finish processing a request
+ * it already received.
  */
-export function uploadDocument(file, onProgress) {
+export function uploadDocument(file, onProgress, options = {}) {
+  const { signal } = options
   let xhr = null
   const promise = new Promise((resolve, reject) => {
     xhr = new XMLHttpRequest()
+    if (signal) {
+      if (signal.aborted) {
+        reject(new Error('Upload cancelled.'))
+        return
+      }
+      signal.addEventListener('abort', () => xhr && xhr.abort(), {
+        once: true,
+      })
+    }
     xhr.open('POST', `${API_BASE_URL}/upload`)
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && typeof onProgress === 'function') {

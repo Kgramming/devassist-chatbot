@@ -1,5 +1,11 @@
 // Document state: upload (with client-side validation + progress),
-// list, delete. Per-file status: uploading -> indexing -> ready | error.
+// list, delete. Per-file status: queued -> uploading -> indexing
+// -> ready | error | cancelled.
+//
+// Uploads go through a small queue (max 2 concurrent). Files waiting in the
+// queue are never sent if removed first; in-flight uploads are aborted via
+// AbortController (which stops the browser request — the server may still
+// finish work it already received).
 import { ref } from 'vue'
 import {
   uploadDocument,
@@ -12,9 +18,17 @@ import {
 
 let tempSeq = 1
 
+/** Maximum simultaneous POST /upload requests. */
+const MAX_CONCURRENT_UPLOADS = 2
+/** How long a cancelled entry stays visible before being removed. */
+const CANCELLED_VISIBLE_MS = 4000
+
 export function useDocuments() {
   const documents = ref([])
   const globalError = ref(null)
+  /** FIFO of { file, temp } waiting for an upload slot. */
+  const pendingQueue = []
+  let activeUploads = 0
 
   function validateFile(file) {
     if (!file) return 'No file selected.'
@@ -56,10 +70,11 @@ export function useDocuments() {
       size_bytes: file ? file.size : 0,
       chunks: null,
       uploaded_at: null,
-      _status: 'uploading',
+      _status: 'queued',
       _progress: 0,
       _error: null,
       _pending: false,
+      _abortController: null,
     }
 
     const validationError = validateFile(file)
@@ -76,11 +91,40 @@ export function useDocuments() {
     }
 
     documents.value.unshift(temp)
-    try {
-      const { promise } = uploadDocument(file, (p) => {
-        temp._progress = p
-        if (p >= 1) temp._status = 'indexing'
+    pendingQueue.push({ file, temp })
+    pumpQueue()
+  }
+
+  /** Start queued uploads while a concurrency slot is free. */
+  function pumpQueue() {
+    while (
+      activeUploads < MAX_CONCURRENT_UPLOADS &&
+      pendingQueue.length > 0
+    ) {
+      const item = pendingQueue.shift()
+      if (item.temp._status === 'cancelled') continue // removed while queued
+      activeUploads++
+      runUpload(item.file, item.temp).finally(() => {
+        activeUploads--
+        pumpQueue()
       })
+    }
+  }
+
+  /** Run one upload; resolves when the entry reaches a terminal status. */
+  async function runUpload(file, temp) {
+    const controller = new AbortController()
+    temp._abortController = controller
+    temp._status = 'uploading'
+    try {
+      const { promise } = uploadDocument(
+        file,
+        (p) => {
+          temp._progress = p
+          if (p >= 1) temp._status = 'indexing'
+        },
+        { signal: controller.signal },
+      )
       const result = await promise
       const real = {
         document_id: result.document_id,
@@ -99,16 +143,56 @@ export function useDocuments() {
       if (idx >= 0) documents.value.splice(idx, 1, real)
       else documents.value.unshift(real)
     } catch (e) {
-      temp._status = 'error'
-      temp._error = e.message || 'Upload failed.'
+      if (controller.signal.aborted) {
+        temp._status = 'cancelled'
+        temp._error = 'Upload cancelled.'
+        setTimeout(() => {
+          documents.value = documents.value.filter(
+            (d) => d.document_id !== temp.document_id,
+          )
+        }, CANCELLED_VISIBLE_MS)
+      } else {
+        temp._status = 'error'
+        temp._error = e.message || 'Upload failed.'
+      }
+    } finally {
+      temp._abortController = null
     }
+  }
+
+  /** Remove a temp entry from the visible list. */
+  function dropTemp(id) {
+    documents.value = documents.value.filter((d) => d.document_id !== id)
   }
 
   async function remove(id) {
     const doc = documents.value.find((d) => d.document_id === id)
     if (!doc || doc._pending) return
     if (String(id).startsWith('temp-')) {
-      documents.value = documents.value.filter((d) => d.document_id !== id)
+      if (doc._status === 'queued') {
+        // Never sent: drop from the queue so no request is made.
+        const qi = pendingQueue.findIndex(
+          (item) => item.temp.document_id === id,
+        )
+        if (qi >= 0) pendingQueue.splice(qi, 1)
+        doc._status = 'cancelled'
+        doc._error = 'Upload cancelled.'
+        setTimeout(() => dropTemp(id), CANCELLED_VISIBLE_MS)
+        return
+      }
+      if (doc._status === 'uploading' || doc._status === 'indexing') {
+        // Abort the browser request. The server may still finish work it
+        // already received; the entry is marked cancelled regardless.
+        if (doc._abortController) doc._abortController.abort()
+        else {
+          doc._status = 'cancelled'
+          doc._error = 'Upload cancelled.'
+          setTimeout(() => dropTemp(id), CANCELLED_VISIBLE_MS)
+        }
+        return
+      }
+      // Failed/cancelled entries: just dismiss.
+      dropTemp(id)
       return
     }
     doc._pending = true
