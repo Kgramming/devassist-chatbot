@@ -28,7 +28,7 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-cha
     ></div>
 
     <aside
-      class="fixed inset-y-0 left-0 z-40 flex w-[300px] shrink-0 flex-col border-r border-white/5 bg-[#0d1119] transition-transform duration-200 md:static md:z-auto md:translate-x-0"
+      class="fixed inset-y-0 left-0 z-40 flex w-[300px] shrink-0 flex-col border-r border-white/5 bg-[#0d1119] transition-transform duration-200 md:static md:z-auto md:h-full md:translate-x-0"
       :class="open ? 'translate-x-0' : '-translate-x-full'"
       aria-label="DevAssist sidebar"
     >
