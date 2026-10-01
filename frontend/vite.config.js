@@ -16,5 +16,22 @@ export default defineConfig({
       'itinerary-rehire-ramrod.ngrok-free.dev',
       '.ngrok-free.dev',
     ],
+    // Proxy backend traffic to the local FastAPI server so the browser
+    // only ever talks to the Vite dev-server origin. This is what lets a
+    // single Ngrok tunnel (port 5173) serve the whole app: the browser
+    // requests https://<tunnel>/health, Vite forwards it to
+    // http://localhost:8000/health. Same-origin requests need no CORS.
+    //
+    // Paths mirror the actual FastAPI routes (see backend/app/api/):
+    //   GET  /health, POST /upload, GET|DELETE /documents[/{id}], WS /ws/chat
+    proxy: {
+      '/health': 'http://localhost:8000',
+      '/upload': 'http://localhost:8000',
+      '/documents': 'http://localhost:8000',
+      '/ws': {
+        target: 'http://localhost:8000',
+        ws: true, // forward WebSocket upgrade for /ws/chat
+      },
+    },
   },
 })

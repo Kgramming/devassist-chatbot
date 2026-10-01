@@ -3,7 +3,7 @@ import UploadPanel from './UploadPanel.vue'
 import DocumentList from './DocumentList.vue'
 import StatusBadge from './StatusBadge.vue'
 import ChatWorkspace from './ChatWorkspace.vue'
-import { API_BASE_URL } from '../services/config.js'
+import { API_BASE_URL_DISPLAY } from '../services/config.js'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -107,8 +107,8 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-cha
             {{ groqConfigured ? '● groq ready' : '● groq missing' }}
           </span>
         </div>
-        <p class="mt-1.5 truncate font-mono text-[10px] text-zinc-600" :title="API_BASE_URL">
-          {{ API_BASE_URL }}
+        <p class="mt-1.5 truncate font-mono text-[10px] text-zinc-600" :title="API_BASE_URL_DISPLAY">
+          {{ API_BASE_URL_DISPLAY }}
         </p>
       </div>
     </aside>

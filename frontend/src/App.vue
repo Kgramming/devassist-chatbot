@@ -6,7 +6,7 @@ import { useWebSocket } from './composables/useWebSocket.js'
 import { useChat } from './composables/useChat.js'
 import { useDocuments } from './composables/useDocuments.js'
 import { getHealth } from './services/api.js'
-import { API_BASE_URL } from './services/config.js'
+import { API_BASE_URL_DISPLAY } from './services/config.js'
 import Sidebar from './components/Sidebar.vue'
 import ChatWindow from './components/ChatWindow.vue'
 import ChatInput from './components/ChatInput.vue'
@@ -151,7 +151,7 @@ onUnmounted(() => {
       >
         <p class="mx-auto max-w-3xl text-[12px] leading-relaxed text-amber-200">
           <span class="font-semibold">Backend unreachable</span> at
-          <span class="font-mono">{{ API_BASE_URL }}</span> — start the FastAPI
+          <span class="font-mono">{{ API_BASE_URL_DISPLAY }}</span> — start the FastAPI
           server (<span class="font-mono">uvicorn app.main:app</span>) to enable chat and uploads.
         </p>
       </div>
