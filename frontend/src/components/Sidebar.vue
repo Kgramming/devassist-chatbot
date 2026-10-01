@@ -37,7 +37,7 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-cha
       aria-label="DevAssist sidebar"
     >
       <!-- Branding -->
-      <div class="flex items-center gap-3 border-b border-white/5 px-4 py-4">
+      <div class="flex shrink-0 items-center gap-3 border-b border-white/5 px-4 py-4">
         <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-emerald-950" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 18 22 12 16 6"></polyline>
@@ -62,8 +62,10 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-cha
         </button>
       </div>
 
-      <!-- Content column: fixed sections + independently scrolling document list -->
-      <div class="flex min-h-0 flex-1 flex-col px-4 py-4">
+      <!-- Content column: fixed sections + independently scrolling document list.
+           overflow-y-auto is a safety net: if the viewport is too short for
+           all fixed sections, the column scrolls instead of overlapping. -->
+      <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4">
         <h2 class="mb-2 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
           Knowledge base
         </h2>
@@ -75,7 +77,7 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-cha
           Documents
           <span v-if="documents.length" class="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-300">{{ documents.length }}</span>
         </h2>
-        <div class="chat-scroll min-h-0 flex-1 overflow-y-auto">
+        <div class="chat-scroll min-h-[100px] flex-1 overflow-y-auto">
           <DocumentList
             :documents="documents"
             @remove="(id) => emit('remove', id)"
@@ -106,7 +108,7 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-cha
       </div>
 
       <!-- Footer: backend status -->
-      <div class="border-t border-white/5 px-4 py-3">
+      <div class="shrink-0 border-t border-white/5 px-4 py-3">
         <div class="flex items-center justify-between gap-2">
           <StatusBadge
             :state="backendState === 'online' ? 'online' : backendState === 'offline' ? 'offline' : 'checking'"

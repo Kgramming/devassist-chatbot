@@ -44,7 +44,7 @@ const previous = computed(() =>
       </button>
     </div>
 
-    <div v-if="conversations.length" class="chat-scroll mt-2 max-h-44 space-y-3 overflow-y-auto pr-0.5">
+    <div v-if="conversations.length" class="chat-scroll mt-2 max-h-32 space-y-3 overflow-y-auto pr-0.5">
       <div v-if="today.length">
         <p class="mb-1 text-[10px] font-medium uppercase tracking-wider text-zinc-600">Today</p>
         <ul class="space-y-0.5">
