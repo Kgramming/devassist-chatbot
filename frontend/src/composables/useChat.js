@@ -135,5 +135,22 @@ export function useChat(ws) {
     if (!isGenerating.value) messages.value = []
   }
 
-  return { messages, isGenerating, sendMessage, cancel, retryLast, clearChat, dispose }
+  /**
+   * Replace the visible conversation (used by chat history).
+   * Bumps the id counter past restored ids so new messages never collide.
+   */
+  function restoreMessages(saved) {
+    if (isGenerating.value) return false
+    const list = Array.isArray(saved) ? saved.map((m) => ({ ...m })) : []
+    messages.value = list
+    const maxId = list.reduce(
+      (n, m) => Math.max(n, Number(m.id) || 0),
+      0,
+    )
+    nextId = Math.max(nextId, maxId + 1)
+    activeId = null
+    return true
+  }
+
+  return { messages, isGenerating, sendMessage, cancel, retryLast, clearChat, restoreMessages, dispose }
 }

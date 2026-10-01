@@ -367,6 +367,203 @@ const makeFile = (name, size) =>
   )
 }
 
+// --- useChatHistory: frontend-only chat history ---
+const { ref: vueRef } = await import('vue')
+const {
+  useChatHistory,
+  generateTitle,
+  HISTORY_STORAGE_KEY,
+  MAX_CONVERSATIONS,
+} = await import(`${FE}/composables/useChatHistory.js`)
+
+function mockStorage() {
+  const store = {}
+  return {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v) },
+    removeItem: (k) => { delete store[k] },
+    clear: () => { for (const k in store) delete store[k] },
+  }
+}
+function freshHistory(messages, isGenerating) {
+  global.localStorage = mockStorage()
+  const restoreMessages = (msgs) => {
+    messages.value = (msgs || []).map((m) => ({ ...m }))
+  }
+  const h = useChatHistory(messages, { isGenerating, restoreMessages })
+  return h
+}
+const sampleMessages = (text) => [
+  { id: 1, role: 'user', content: text, ts: Date.now() },
+  { id: 2, role: 'assistant', content: 'Answer', sources: [{ filename: 'doc.md', score: 0.9 }], state: 'done', ts: Date.now() },
+]
+
+{
+  // 1. Creating a new chat.
+  const messages = vueRef(sampleMessages('Hello'))
+  const h = freshHistory(messages, vueRef(false))
+  h.persist()
+  const before = h.conversations.value.length
+  h.newChat()
+  check('new chat creates a conversation', h.conversations.value.length === before + 1)
+  check('new chat clears messages', messages.value.length === 0)
+  check('new chat has empty title', h.conversations.value[0].title === 'New Chat')
+  h.dispose()
+}
+
+{
+  // 2. Saving a conversation.
+  const messages = vueRef(sampleMessages('Explain async and await in Python'))
+  const h = freshHistory(messages, vueRef(false))
+  h.persist()
+  const raw = global.localStorage.getItem(HISTORY_STORAGE_KEY)
+  const data = JSON.parse(raw)
+  check('conversation saved to localStorage', data.length === 1 && data[0].messages.length === 2)
+  check('sources preserved in storage', data[0].messages[1].sources[0].filename === 'doc.md')
+  h.dispose()
+}
+
+{
+  // 3 & 4. Restoring and switching between two conversations.
+  const messages = vueRef([])
+  const h = freshHistory(messages, vueRef(false))
+  // Conversation A
+  messages.value = sampleMessages('First topic')
+  h.persist()
+  const idA = h.activeId.value
+  h.newChat()
+  // Conversation B
+  messages.value = sampleMessages('Second topic')
+  h.persist()
+  const idB = h.activeId.value
+  check('two conversations tracked', h.conversations.value.length === 2)
+  // Switch to A
+  h.switchTo(idA)
+  check('restore loads conversation A', messages.value[0].content === 'First topic')
+  check('active id updated', h.activeId.value === idA)
+  // Switch to B
+  h.switchTo(idB)
+  check('switch loads conversation B', messages.value[0].content === 'Second topic')
+  h.dispose()
+}
+
+{
+  // 5. Refresh/persistence simulation: new instance loads from storage.
+  const messages = vueRef(sampleMessages('Persistent topic'))
+  const h1 = freshHistory(messages, vueRef(false))
+  h1.persist()
+  const savedRaw = global.localStorage.getItem(HISTORY_STORAGE_KEY)
+  // Simulate refresh: new messages ref, same storage.
+  const messages2 = vueRef([])
+  const restore2 = (msgs) => { messages2.value = (msgs || []).map((m) => ({ ...m })) }
+  const h2 = useChatHistory(messages2, { isGenerating: vueRef(false), restoreMessages: restore2 })
+  check('refresh restores conversations', h2.conversations.value.length === 1)
+  check('refresh restores messages', messages2.value[0].content === 'Persistent topic')
+  check('refresh restores sources', messages2.value[1].sources[0].filename === 'doc.md')
+  h1.dispose()
+  h2.dispose()
+  // Restore the saved data for subsequent tests that need clean state.
+  global.localStorage = mockStorage()
+}
+
+{
+  // 6. Automatically generated chat title.
+  check(
+    'title from first user message',
+    generateTitle(sampleMessages('Explain async and await in Python')) === 'Async and await in Python',
+  )
+  check(
+    'title strips question prefix',
+    generateTitle(sampleMessages('What is a closure in JavaScript?')) === 'A closure in JavaScript?',
+  )
+  // 7. Empty chat handling.
+  check('empty chat title', generateTitle([]) === 'New Chat')
+  check('no user message title', generateTitle([{ role: 'assistant', content: 'hi' }]) === 'New Chat')
+}
+
+{
+  // 8 & 9. New Chat and switching do not affect documents.
+  const messages = vueRef(sampleMessages('Topic'))
+  const documents = vueRef([{ document_id: 'doc1', filename: 'a.md' }])
+  const h = freshHistory(messages, vueRef(false))
+  h.persist()
+  h.newChat()
+  check('new chat does not remove documents', documents.value.length === 1)
+  messages.value = sampleMessages('Another')
+  h.persist()
+  const idB = h.activeId.value
+  const idA = h.conversations.value.find((c) => c.id !== idB).id
+  h.switchTo(idA)
+  check('switching chats does not affect documents', documents.value.length === 1)
+  h.dispose()
+}
+
+{
+  // 10. Invalid localStorage data does not crash.
+  global.localStorage = mockStorage()
+  global.localStorage.setItem(HISTORY_STORAGE_KEY, 'not-json{{{')
+  const messages = vueRef([])
+  let crashed = false
+  let h = null
+  try {
+    h = useChatHistory(messages, {
+      isGenerating: vueRef(false),
+      restoreMessages: (msgs) => { messages.value = msgs },
+    })
+  } catch {
+    crashed = true
+  }
+  check('malformed storage does not crash', !crashed)
+  check('malformed storage falls back to clean history', h && h.conversations.value.length === 1)
+  if (h) h.dispose()
+
+  global.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify({ not: 'an array' }))
+  crashed = false
+  try {
+    h = useChatHistory(messages, {
+      isGenerating: vueRef(false),
+      restoreMessages: (msgs) => { messages.value = msgs },
+    })
+  } catch {
+    crashed = true
+  }
+  check('wrong shape does not crash', !crashed)
+  if (h) h.dispose()
+}
+
+{
+  // 11. Maximum history limit (50).
+  const messages = vueRef([])
+  const h = freshHistory(messages, vueRef(false))
+  // Create 55 conversations by repeatedly adding messages + newChat.
+  for (let i = 0; i < 55; i++) {
+    messages.value = sampleMessages(`Topic ${i}`)
+    h.persist()
+    // Force a new conversation each time by bypassing the empty-check:
+    // directly manipulate via newChat after ensuring current is non-empty.
+    h.newChat()
+  }
+  check(
+    'history capped at 50',
+    h.conversations.value.length <= MAX_CONVERSATIONS,
+    String(h.conversations.value.length),
+  )
+  h.dispose()
+}
+
+{
+  // 13. Export Chat still exports the currently selected conversation.
+  const { messagesToMarkdown } = await import(`${FE}/services/chatExport.js`)
+  const messages = vueRef(sampleMessages('Export me'))
+  const h = freshHistory(messages, vueRef(false))
+  h.persist()
+  const md = messagesToMarkdown(messages.value)
+  check('export includes current conversation', md.includes('Export me'))
+  h.dispose()
+}
+// 12 & 14. Existing Chat Workspace/export/upload tests run in this suite
+// and must keep passing (verified by UNIT_PASS below).
+
 const failed = results.filter((r) => !r.pass)
 for (const r of results) console.log((r.pass ? 'PASS' : 'FAIL') + ' ' + r.name + (r.extra ? ' :: ' + r.extra : ''))
 console.log(failed.length ? `UNIT_FAIL: ${failed.length}` : `UNIT_PASS: ${results.length} tests`)

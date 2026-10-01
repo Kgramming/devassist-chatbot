@@ -3,6 +3,7 @@ import UploadPanel from './UploadPanel.vue'
 import DocumentList from './DocumentList.vue'
 import StatusBadge from './StatusBadge.vue'
 import ChatWorkspace from './ChatWorkspace.vue'
+import ChatHistory from './ChatHistory.vue'
 import { API_BASE_URL_DISPLAY } from '../services/config.js'
 
 const props = defineProps({
@@ -13,8 +14,11 @@ const props = defineProps({
   messageCount: { type: Number, default: 0 },
   sourceCount: { type: Number, default: 0 },
   hasMessages: { type: Boolean, default: false },
+  conversations: { type: Array, default: () => [] },
+  activeChatId: { type: String, default: null },
+  chatBusy: { type: Boolean, default: false },
 })
-const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-chat', 'export'])
+const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-chat', 'select-chat', 'export'])
 </script>
 
 <template>
@@ -79,7 +83,17 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-cha
           />
         </div>
 
-        <div class="mt-5 shrink-0">
+        <div class="mt-4 shrink-0">
+          <ChatHistory
+            :conversations="conversations"
+            :active-id="activeChatId"
+            :disabled="chatBusy"
+            @new-chat="emit('new-chat')"
+            @select="(id) => emit('select-chat', id)"
+          />
+        </div>
+
+        <div class="mt-4 shrink-0">
           <ChatWorkspace
             :message-count="messageCount"
             :document-count="documents.length"

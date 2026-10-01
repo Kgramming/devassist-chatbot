@@ -4,6 +4,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useWebSocket } from './composables/useWebSocket.js'
 import { useChat } from './composables/useChat.js'
+import { useChatHistory } from './composables/useChatHistory.js'
 import { useDocuments } from './composables/useDocuments.js'
 import { getHealth } from './services/api.js'
 import { API_BASE_URL_DISPLAY } from './services/config.js'
@@ -20,8 +21,12 @@ const docs = useDocuments()
 // Destructure refs so the template auto-unwraps them (nested refs inside
 // plain objects are NOT unwrapped — `docs.documents.filter` would break).
 const { connectionState } = ws
-const { messages, isGenerating, sendMessage, cancel, retryLast, clearChat } = chat
+const { messages, isGenerating, sendMessage, cancel, retryLast, clearChat, restoreMessages } = chat
 const { documents, globalError, upload, remove, refresh, dismissError, clearGlobalError } = docs
+
+// Frontend-only chat history (localStorage). Documents/RAG are untouched.
+const history = useChatHistory(messages, { isGenerating, restoreMessages })
+const { conversations, activeId } = history
 
 const backendState = ref('checking') // checking | online | offline
 const groqConfigured = ref(false)
@@ -45,8 +50,15 @@ const workspaceSourceCount = computed(() =>
 const workspaceHasMessages = computed(() => messages.value.length > 0)
 
 function handleNewChat() {
-  // Clears the conversation only — knowledge-base documents are untouched.
-  clearChat()
+  // Saves the current conversation to local history, then starts a fresh
+  // one. Knowledge-base documents are untouched.
+  history.newChat()
+  if (window.innerWidth < 768) sidebarOpen.value = false
+}
+
+function handleSelectChat(id) {
+  // Restores a previous conversation's messages; documents/RAG unaffected.
+  history.switchTo(id)
   if (window.innerWidth < 768) sidebarOpen.value = false
 }
 
@@ -95,11 +107,15 @@ onUnmounted(() => {
       :message-count="workspaceMessageCount"
       :source-count="workspaceSourceCount"
       :has-messages="workspaceHasMessages"
+      :conversations="conversations"
+      :active-chat-id="activeId"
+      :chat-busy="isGenerating"
       @close="sidebarOpen = false"
       @upload="upload"
       @remove="remove"
       @dismiss-error="dismissError"
       @new-chat="handleNewChat"
+      @select-chat="handleSelectChat"
       @export="handleExportChat"
     />
 
