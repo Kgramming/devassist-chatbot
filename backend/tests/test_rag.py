@@ -1,11 +1,25 @@
 """RAG: query embedding, top-3 retrieval, empty store, bounded context."""
 
+from unittest.mock import patch
+
 import pytest
 
 from app.core.config import settings
 from app.rag.embeddings import EmbeddingService
 from app.rag.prompts import build_rag_prompt, format_retrieved_context
 from app.rag.vectorstore import VectorStore
+
+
+def test_embedding_model_uses_cpu_explicitly():
+    """SentenceTransformer must be pinned to CPU.
+
+    Auto device selection picks MPS on Apple Silicon, which crashes with a
+    Metal command-buffer assertion during ingestion.
+    """
+    svc = EmbeddingService()
+    with patch("app.rag.embeddings.SentenceTransformer") as mock_st:
+        svc._load()
+        mock_st.assert_called_once_with(svc._model_name, device="cpu")
 
 
 @pytest.fixture(scope="module")

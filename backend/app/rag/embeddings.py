@@ -31,7 +31,10 @@ class EmbeddingService:
     def _load(self) -> SentenceTransformer:
         if self._model is None:
             logger.info("Loading local embedding model '%s' ...", self._model_name)
-            self._model = SentenceTransformer(self._model_name)
+            # Explicit CPU: SentenceTransformer auto-selects MPS on Apple
+            # Silicon, which crashes with a Metal command-buffer assertion
+            # (MTLCommandBufferStatusCommitted) during ingestion.
+            self._model = SentenceTransformer(self._model_name, device="cpu")
             logger.info("Embedding model loaded.")
         return self._model
 
