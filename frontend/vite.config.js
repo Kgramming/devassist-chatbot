@@ -9,5 +9,12 @@ export default defineConfig({
   plugins: [vue(), tailwindcss()],
   server: {
     port: 5173,
+    // Allow access through the Ngrok public hostname for testing.
+    // Host validation stays on for everything else (no `true` wildcard).
+    // The leading-dot entry covers future Ngrok hostnames on this domain.
+    allowedHosts: [
+      'itinerary-rehire-ramrod.ngrok-free.dev',
+      '.ngrok-free.dev',
+    ],
   },
 })
