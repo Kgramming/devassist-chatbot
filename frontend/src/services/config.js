@@ -13,7 +13,8 @@
 //    http://localhost:8000 directly — this is what makes a single Ngrok
 //    tunnel serve the whole app.
 
-const raw = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '')
+const _env = (import.meta && import.meta.env) || {}
+const raw = (_env.VITE_API_URL || '').trim().replace(/\/+$/, '')
 
 /**
  * Base URL for REST calls. Absolute (e.g. "https://api.example.com") when

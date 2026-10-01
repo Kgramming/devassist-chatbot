@@ -15,16 +15,19 @@ function openPicker() {
 }
 
 function onPicked(e) {
-  const f = e.target.files && e.target.files[0]
+  const files = e.target.files ? Array.from(e.target.files) : []
   e.target.value = ''
-  if (f) emit('select', f)
+  for (const f of files) emit('select', f)
 }
 
 function onDrop(e) {
   dragging.value = false
   if (props.disabled) return
-  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]
-  if (f) emit('select', f)
+  const files =
+    e.dataTransfer && e.dataTransfer.files
+      ? Array.from(e.dataTransfer.files)
+      : []
+  for (const f of files) emit('select', f)
 }
 </script>
 
@@ -34,7 +37,7 @@ function onDrop(e) {
       role="button"
       tabindex="0"
       :aria-disabled="disabled"
-      aria-label="Upload a document (PDF, TXT or MD, up to 5 MB)"
+      aria-label="Upload documents (PDF, TXT or MD, up to 5 MB each)"
       @click="openPicker"
       @keydown.enter.prevent="openPicker"
       @keydown.space.prevent="openPicker"
@@ -57,15 +60,16 @@ function onDrop(e) {
         </svg>
       </div>
       <p class="mt-2.5 text-[13px] font-medium text-zinc-200">
-        Drop a file here or <span class="text-emerald-300 underline underline-offset-2">browse</span>
+        Drop files here or <span class="text-emerald-300 underline underline-offset-2">browse</span>
       </p>
       <p class="mt-1 font-mono text-[11px] text-zinc-500">
-        {{ ALLOWED_EXTENSIONS.join(' · ').toUpperCase() }} — max 5 MB
+        {{ ALLOWED_EXTENSIONS.join(' · ').toUpperCase() }} — max 5 MB each
       </p>
       <input
         ref="input"
         type="file"
         :accept="ALLOWED_EXTENSIONS.join(',')"
+        multiple
         class="hidden"
         tabindex="-1"
         aria-hidden="true"

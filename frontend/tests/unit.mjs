@@ -198,6 +198,64 @@ const exp = await import(`${FE}/services/chatExport.js`)
   check('refusal text intact', a.content.includes('specialized in programming'))
 }
 
+// --- useDocuments: multi-file selection handling ---
+const { useDocuments } = await import(`${FE}/composables/useDocuments.js`)
+const makeFile = (name, size) =>
+  new File([new Uint8Array(size)], name, { type: 'text/plain' })
+
+{
+  const docs = useDocuments()
+  check('validateFile accepts .md', docs.validateFile(makeFile('a.md', 100)) === null)
+  check('validateFile accepts .pdf', docs.validateFile(makeFile('b.pdf', 100)) === null)
+  check('validateFile accepts .txt', docs.validateFile(makeFile('c.txt', 100)) === null)
+  check('validateFile rejects .exe', docs.validateFile(makeFile('d.exe', 100)) !== null)
+  check('validateFile rejects empty', docs.validateFile(makeFile('e.md', 0)) !== null)
+  check(
+    'validateFile rejects over 5MB',
+    docs.validateFile(makeFile('f.md', 6 * 1024 * 1024)) !== null,
+  )
+}
+
+{
+  // Simulates picking 2 files: upload() called once per file (as App.vue does
+  // on each UploadPanel 'select' emit). Each gets an independent entry.
+  const docs = useDocuments()
+  docs.upload(makeFile('one.md', 100))
+  docs.upload(makeFile('two.md', 100))
+  await tick()
+  const names = docs.documents.value.map((d) => d.filename)
+  check('2-file selection creates 2 entries', names.includes('one.md') && names.includes('two.md'), names.join(','))
+  check(
+    'entries are independent (own temp ids)',
+    new Set(docs.documents.value.map((d) => d.document_id)).size === 2,
+  )
+}
+
+{
+  // 9-file selection stress: all 9 tracked independently.
+  const docs = useDocuments()
+  for (let i = 0; i < 9; i++) docs.upload(makeFile(`doc${i}.md`, 100))
+  await tick()
+  check('9-file selection creates 9 entries', docs.documents.value.length === 9, String(docs.documents.value.length))
+}
+
+{
+  // Mixed valid + invalid: invalid fails validation, valid still attempted.
+  const docs = useDocuments()
+  docs.upload(makeFile('bad.exe', 100)) // invalid extension
+  docs.upload(makeFile('good.md', 100)) // valid
+  await tick()
+  const bad = docs.documents.value.find((d) => d.filename === 'bad.exe')
+  const good = docs.documents.value.find((d) => d.filename === 'good.md')
+  check('invalid file marked error', bad && bad._status === 'error')
+  check('invalid file has message', bad && /Unsupported file type/.test(bad._error || ''))
+  check(
+    'valid file attempted independently (no validation error)',
+    !!good && !/Unsupported file type|exceeds|empty/.test(good._error || ''),
+    good && `${good._status}: ${good._error || 'attempted'}`,
+  )
+}
+
 const failed = results.filter((r) => !r.pass)
 for (const r of results) console.log((r.pass ? 'PASS' : 'FAIL') + ' ' + r.name + (r.extra ? ' :: ' + r.extra : ''))
 console.log(failed.length ? `UNIT_FAIL: ${failed.length}` : `UNIT_PASS: ${results.length} tests`)
