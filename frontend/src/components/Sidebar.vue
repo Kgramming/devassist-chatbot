@@ -2,6 +2,7 @@
 import UploadPanel from './UploadPanel.vue'
 import DocumentList from './DocumentList.vue'
 import StatusBadge from './StatusBadge.vue'
+import ChatWorkspace from './ChatWorkspace.vue'
 import { API_BASE_URL } from '../services/config.js'
 
 const props = defineProps({
@@ -9,8 +10,11 @@ const props = defineProps({
   documents: { type: Array, default: () => [] },
   backendState: { type: String, default: 'checking' }, // checking | online | offline
   groqConfigured: { type: Boolean, default: false },
+  messageCount: { type: Number, default: 0 },
+  sourceCount: { type: Number, default: 0 },
+  hasMessages: { type: Boolean, default: false },
 })
-const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error'])
+const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error', 'new-chat', 'export'])
 </script>
 
 <template>
@@ -70,6 +74,17 @@ const emit = defineEmits(['close', 'upload', 'remove', 'dismiss-error'])
           @remove="(id) => emit('remove', id)"
           @dismiss-error="(id) => emit('dismiss-error', id)"
         />
+
+        <div class="mt-5">
+          <ChatWorkspace
+            :message-count="messageCount"
+            :document-count="documents.length"
+            :source-count="sourceCount"
+            :has-messages="hasMessages"
+            @new-chat="emit('new-chat')"
+            @export="emit('export')"
+          />
+        </div>
       </div>
 
       <!-- Footer: backend status -->

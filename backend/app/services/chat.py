@@ -40,6 +40,14 @@ programming assistance from DevAssist.
 
 MOCK_CHUNK_SIZE = 24  # characters per mock "token" event
 
+# Marker the system prompt instructs the model to prepend to out-of-scope
+# refusals. When seen, the marker is stripped from the streamed output and
+# no sources event is emitted (a refusal uses no retrieved context).
+DECLINED_MARKER = "[DECLINED]"
+# How many leading characters to buffer before deciding declined/not.
+# Enough to contain the marker plus its line break.
+_PROBE_CHARS = 32
+
 
 async def _safe_send(send: SendEvent, event: dict) -> None:
     try:
@@ -48,11 +56,56 @@ async def _safe_send(send: SendEvent, event: dict) -> None:
         logger.warning("Failed to send WS event %s", event.get("type"))
 
 
-async def _stream_mock(query: str, send: SendEvent) -> None:
-    text = MOCK_RESPONSE_TEMPLATE.format(query=query[:200])
-    for i in range(0, len(text), MOCK_CHUNK_SIZE):
-        await asyncio.sleep(0.01)  # simulate streaming latency
-        await send({"type": "token", "content": text[i : i + MOCK_CHUNK_SIZE]})
+async def _iter_response_tokens(
+    message: str, messages: list[dict], settings: Settings
+):
+    """Yield raw response tokens from the mock template or the Groq stream."""
+    if settings.use_mock_groq:
+        text = MOCK_RESPONSE_TEMPLATE.format(query=message[:200])
+        for i in range(0, len(text), MOCK_CHUNK_SIZE):
+            await asyncio.sleep(0.01)  # simulate streaming latency
+            yield text[i : i + MOCK_CHUNK_SIZE]
+    else:
+        async for token in stream_chat_completion(
+            settings.GROQ_API_KEY, settings.GROQ_MODEL, messages
+        ):
+            yield token
+
+
+def _build_sources_event(retrieved: list[dict], min_score: float) -> dict:
+    """Build the sources event from genuinely relevant retrieved chunks.
+
+    Only chunks scoring at or above ``min_score`` are cited. Top-K retrieval
+    always returns K chunks, but a low-scoring chunk is not a genuine
+    contribution to the answer and must not be presented as a source.
+    """
+    return {
+        "type": "sources",
+        "chunks": [
+            {
+                "filename": hit["metadata"].get("filename", "unknown"),
+                "chunk_index": hit["metadata"].get("chunk_index", 0),
+                "text": str(hit["metadata"].get("text", ""))[:500],
+            }
+            for hit in retrieved
+            if hit.get("score", 0.0) >= min_score
+        ],
+    }
+
+
+def _strip_declined_marker(text: str) -> tuple[bool, str]:
+    """Return (declined, text_without_marker).
+
+    Detects the [DECLINED] marker the system prompt requires at the start of
+    out-of-scope refusals. Leading whitespace before the marker is tolerated.
+    """
+    stripped = text.lstrip()
+    if not stripped.startswith(DECLINED_MARKER):
+        return False, text
+    rest = stripped[len(DECLINED_MARKER) :]
+    if rest.startswith("\n"):
+        rest = rest[1:]
+    return True, rest
 
 
 async def generate_response(
@@ -63,6 +116,14 @@ async def generate_response(
     send: SendEvent,
 ) -> None:
     """Run one full assistant turn, emitting WS events via ``send``.
+
+    Event order per turn: status → sources → token* → done (or error).
+
+    Sources are emitted only when the turn is NOT a programming-scope
+    refusal and retrieval actually returned chunks. The model is instructed
+    (system prompt) to begin refusals with a [DECLINED] marker; the marker
+    is stripped from the streamed output and suppresses the sources event,
+    because a refusal uses no retrieved context.
 
     Raises asyncio.CancelledError through (caller handles cancellation).
     All other failures are converted to a terminal {"type": "error"} event.
@@ -79,30 +140,40 @@ async def generate_response(
                 ingestion.vectorstore.search, query_vector, settings.TOP_K
             )
 
-        if retrieved:
-            await send(
-                {
-                    "type": "sources",
-                    "chunks": [
-                        {
-                            "filename": hit["metadata"].get("filename", "unknown"),
-                            "chunk_index": hit["metadata"].get("chunk_index", 0),
-                            "text": str(hit["metadata"].get("text", ""))[:500],
-                        }
-                        for hit in retrieved
-                    ],
-                }
-            )
-
         messages = build_rag_prompt(message, retrieved)
 
-        if settings.use_mock_groq:
-            await _stream_mock(message, send)
-        else:
-            async for token in stream_chat_completion(
-                settings.GROQ_API_KEY, settings.GROQ_MODEL, messages
-            ):
+        # Buffer the start of the stream to detect a [DECLINED] refusal
+        # marker before deciding whether to emit sources. This keeps the
+        # client-visible order status → sources → token* → done.
+        probe_buffer = ""
+        probe_complete = False
+
+        async def flush_probe() -> None:
+            """Decide declined/not from the buffered head of the stream."""
+            nonlocal probe_complete, probe_buffer
+            probe_complete = True
+            declined, rest = _strip_declined_marker(probe_buffer)
+            if not declined:
+                sources_event = _build_sources_event(
+                    retrieved, settings.SOURCE_SCORE_THRESHOLD
+                )
+                if sources_event["chunks"]:
+                    await send(sources_event)
+            if rest:
+                await send({"type": "token", "content": rest})
+            probe_buffer = ""
+
+        async for token in _iter_response_tokens(message, messages, settings):
+            if not probe_complete:
+                probe_buffer += token
+                if len(probe_buffer) >= _PROBE_CHARS or "\n" in probe_buffer:
+                    await flush_probe()
+            else:
                 await send({"type": "token", "content": token})
+
+        if not probe_complete:
+            # Very short response — decide from whatever was buffered.
+            await flush_probe()
 
         await send({"type": "done"})
 

@@ -13,6 +13,21 @@ const isUser = computed(() => props.message.role === 'user')
 const isStreaming = computed(() => props.message.state === 'streaming')
 const hasError = computed(() => props.message.state === 'error')
 
+// Deduplicated source documents: only the documents that actually
+// supplied retrieved chunks, each listed once.
+const sourceDocuments = computed(() => {
+  const seen = new Set()
+  const docs = []
+  for (const s of props.message.sources || []) {
+    const name = s.filename || 'document'
+    if (!seen.has(name)) {
+      seen.add(name)
+      docs.push(name)
+    }
+  }
+  return docs
+})
+
 function formatTime(ts) {
   try {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -91,8 +106,8 @@ function formatTime(ts) {
           Response stopped.
         </p>
 
-        <!-- RAG sources -->
-        <div v-if="message.sources && message.sources.length" class="mt-3 border-t border-white/5 pt-2">
+        <!-- RAG sources: only documents that supplied retrieved chunks -->
+        <div v-if="sourceDocuments.length" class="mt-3 border-t border-white/5 pt-2">
           <button
             type="button"
             @click="showSources = !showSources"
@@ -104,20 +119,18 @@ function formatTime(ts) {
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
-            Sources ({{ message.sources.length }})
+            Sources ({{ sourceDocuments.length }})
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="showSources && 'rotate-180'" aria-hidden="true">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
           <ul v-if="showSources" class="mt-2 space-y-1.5">
             <li
-              v-for="(s, i) in message.sources"
-              :key="i"
-              class="rounded-md bg-white/[0.04] px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-zinc-400"
+              v-for="name in sourceDocuments"
+              :key="name"
+              class="rounded-md bg-white/[0.04] px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-zinc-300"
             >
-              <span class="text-zinc-300">{{ s.filename || 'document' }}</span>
-              <span class="text-zinc-600"> · chunk {{ s.chunk_index }}</span>
-              <p class="mt-0.5 line-clamp-2 whitespace-pre-wrap font-sans text-zinc-500">{{ s.text }}</p>
+              {{ name }}
             </li>
           </ul>
         </div>

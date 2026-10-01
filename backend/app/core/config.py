@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     # Hard bound on retrieved context size (chars). 6000 chars ~= 1500 tokens,
     # safely inside the ~4000-token RAG budget from the assignment.
     MAX_RAG_CONTEXT_CHARS: int = 6000
+    # Minimum cosine-similarity score for a retrieved chunk to be cited as a
+    # source. Retrieval still returns top-K (prompt context unchanged); this
+    # only filters the sources shown to the user, so weakly-related chunks
+    # pulled in by top-K are not presented as genuine contributions.
+    SOURCE_SCORE_THRESHOLD: float = 0.4
 
     # --- Behaviour ---
     MOCK_GROQ: bool = False

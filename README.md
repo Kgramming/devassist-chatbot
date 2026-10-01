@@ -43,12 +43,14 @@ purpose:
 - 💬 Streaming chat over WebSocket (`token`/`done`/`status`/`sources`/`error` events)
 - 📄 Document upload (`.pdf`, `.txt`, `.md`, ≤ 5 MB) with progress, indexing status, list, and delete
 - 🔎 Local RAG: MiniLM-L6-v2 embeddings (384-dim) + FAISS exact search, top-3 chunks, ~1500-token bounded context
+- 📚 Accurate source attribution: Sources show only the documents that genuinely contributed retrieved context (deduplicated); programming-scope refusals never show sources
 - 🛡️ Programming-only guardrail via system-prompt engineering (with worked in-scope/out-of-scope examples)
 - 🧱 Prompt-injection defense: retrieved text structurally separated from system instructions
 - 🎨 Markdown rendering with syntax-highlighted code blocks and copy buttons (DOMPurify-sanitized)
+- 🗂️ Chat Workspace: live session stats (messages, documents, sources used), New Chat (clears conversation, keeps documents), and Export Chat (downloads the conversation as Markdown)
 - 🔌 Mock mode: full UI + RAG pipeline works with no API key and zero quota usage
 - ⚠️ Graceful degradation: friendly messages for 429/401/5xx/network failures, never tracebacks
-- 🧪 62 automated backend tests (chunking, validation, ingestion, RAG, prompts, Groq mocks, WebSocket, API)
+- 🧪 71 automated backend tests (chunking, validation, ingestion, RAG, prompts, Groq mocks, WebSocket, API, chat orchestration)
 - 🌐 Responsive dark developer-tool UI; Enter-to-send, Shift+Enter newline, cancel/retry, connection badge
 
 ## 4. Architecture
@@ -211,7 +213,7 @@ Production build: `npm run build` → `frontend/dist/`.
 
 ## 12. Running tests
 
-**Backend** (62 tests):
+**Backend** (71 tests):
 
 ```bash
 cd backend
@@ -230,7 +232,7 @@ mapping, no traceback leakage, WebSocket protocol (tokens→done, sources,
 invalid payloads, binary frames, clean disconnect), REST upload/delete
 success and error paths.
 
-**Frontend** (28 tests):
+**Frontend** (37 tests):
 
 ```bash
 cd frontend

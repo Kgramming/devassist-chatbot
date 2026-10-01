@@ -11,6 +11,7 @@ import Sidebar from './components/Sidebar.vue'
 import ChatWindow from './components/ChatWindow.vue'
 import ChatInput from './components/ChatInput.vue'
 import StatusBadge from './components/StatusBadge.vue'
+import { messagesToMarkdown, downloadTextFile, exportFilename } from './services/chatExport.js'
 
 const ws = useWebSocket()
 const chat = useChat(ws)
@@ -35,6 +36,23 @@ const wsLabel = computed(() =>
       ? 'Connecting…'
       : 'Chat disconnected',
 )
+
+// Chat Workspace session statistics (derived live from chat/documents).
+const workspaceMessageCount = computed(() => messages.value.length)
+const workspaceSourceCount = computed(() =>
+  messages.value.reduce((n, m) => n + (m.sources ? m.sources.length : 0), 0),
+)
+const workspaceHasMessages = computed(() => messages.value.length > 0)
+
+function handleNewChat() {
+  // Clears the conversation only — knowledge-base documents are untouched.
+  clearChat()
+  if (window.innerWidth < 768) sidebarOpen.value = false
+}
+
+function handleExportChat() {
+  downloadTextFile(exportFilename(), messagesToMarkdown(messages.value))
+}
 
 async function checkHealth() {
   try {
@@ -74,10 +92,15 @@ onUnmounted(() => {
       :documents="documents"
       :backend-state="backendState"
       :groq-configured="groqConfigured"
+      :message-count="workspaceMessageCount"
+      :source-count="workspaceSourceCount"
+      :has-messages="workspaceHasMessages"
       @close="sidebarOpen = false"
       @upload="upload"
       @remove="remove"
       @dismiss-error="dismissError"
+      @new-chat="handleNewChat"
+      @export="handleExportChat"
     />
 
     <!-- Main column -->

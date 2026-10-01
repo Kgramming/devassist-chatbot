@@ -150,6 +150,54 @@ const tick = () => new Promise((r) => setTimeout(r, 10))
   check('blank message ignored', chat.messages.value.length === 0)
 }
 
+// --- chatExport: Markdown export of the conversation ---
+const exp = await import(`${FE}/services/chatExport.js`)
+{
+  const messages = [
+    { role: 'user', content: 'What is the weather in Mumbai today?' },
+    { role: 'assistant', content: "I'm DevAssist, specialized in programming assistance.", sources: [] },
+    { role: 'user', content: 'How does caching work?' },
+    {
+      role: 'assistant',
+      content: 'Cache retention is 30 days.',
+      sources: [
+        { filename: 'cache.md', chunk_index: 0, text: 'aaa' },
+        { filename: 'cache.md', chunk_index: 1, text: 'bbb' },
+        { filename: 'other.md', chunk_index: 0, text: 'ccc' },
+      ],
+    },
+  ]
+  const mdOut = exp.messagesToMarkdown(messages)
+  check('export has title', mdOut.startsWith('# DevAssist Chat Export'))
+  check('export has user section', mdOut.includes('## User\n\nWhat is the weather'))
+  check('export has assistant section', mdOut.includes('## DevAssist\n\nCache retention'))
+  check(
+    'export deduplicates source filenames',
+    mdOut.includes('*Sources: cache.md, other.md*'),
+    mdOut.split('\n').find((l) => l.includes('Sources:')) || '',
+  )
+  check('export omits sources line when none', !mdOut.includes('*Sources: *'))
+  check('export empty conversation', exp.messagesToMarkdown([]).startsWith('# DevAssist Chat Export'))
+}
+{
+  const name = exp.exportFilename(new Date(2026, 9, 1, 12, 34, 56))
+  check('export filename format', name === 'devassist-chat-2026-10-01-123456.md', name)
+}
+
+// --- refusal without sources event: no Sources section data ---
+{
+  const ws = makeFakeWs((w) => {
+    w.emit('token', { content: "I'm DevAssist, specialized in programming assistance." })
+    w.emit('done', {})
+  })
+  const chat = useChat(ws)
+  await chat.sendMessage('What is the weather in Mumbai today?')
+  await tick()
+  const a = chat.messages.value[1]
+  check('refusal has no sources attached', Array.isArray(a.sources) && a.sources.length === 0)
+  check('refusal text intact', a.content.includes('specialized in programming'))
+}
+
 const failed = results.filter((r) => !r.pass)
 for (const r of results) console.log((r.pass ? 'PASS' : 'FAIL') + ' ' + r.name + (r.extra ? ' :: ' + r.extra : ''))
 console.log(failed.length ? `UNIT_FAIL: ${failed.length}` : `UNIT_PASS: ${results.length} tests`)
