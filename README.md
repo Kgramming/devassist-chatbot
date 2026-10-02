@@ -9,6 +9,36 @@ local MiniLM embeddings + FAISS → Groq LLM → WebSocket streaming.
 
 ---
 
+## Screenshots
+
+![DevAssist chat interface with a RAG-grounded answer, syntax-highlighted code, and source attribution](docs/screenshots/chat.png)
+
+*RAG-grounded answer with syntax-highlighted code and expandable source attribution.*
+
+![DevAssist sidebar: document upload, document list, chat history, and workspace stats](docs/screenshots/sidebar.png)
+
+*Sidebar: knowledge-base upload, indexed documents, persistent chat history, and live workspace stats.*
+
+## 60-second demo
+
+No API key needed — mock mode runs the full UI and RAG pipeline locally.
+
+```bash
+# 1. Start the backend (mock mode) and frontend
+cd backend && MOCK_GROQ=true .venv/bin/python -m uvicorn app.main:app --port 8000 &
+cd frontend && npm run dev   # → http://localhost:5173
+```
+
+Then in the browser:
+
+1. **Upload** `docs/sample-knowledge.md` via the sidebar drop zone (watch it go Queued → Uploading → Indexing → Ready).
+2. **Ask** *"Explain async and await in Python"* — the answer streams in with syntax-highlighted code.
+3. **Expand Sources** under the answer to see the exact document chunks it was grounded in.
+4. **Try** *"What's the weather today?"* — the programming-only guardrail politely declines (and shows no sources).
+5. Click **+ New chat**, ask something else, then click back — the previous conversation is restored from local history.
+
+---
+
 ## 1. Project overview
 
 DevAssist is a specialized chatbot for programming and software-engineering
@@ -42,6 +72,8 @@ purpose:
 
 - 💬 Streaming chat over WebSocket (`token`/`done`/`status`/`sources`/`error` events)
 - 📄 Document upload (`.pdf`, `.txt`, `.md`, ≤ 5 MB) with progress, indexing status, list, and delete
+- 📎 Multi-document upload: select many files at once; a frontend queue (max 2 concurrent) with per-file Queued / Uploading / Indexing / Completed / Failed / Cancelled states and cancellation of queued or in-flight uploads
+- 🕘 Persistent chat history: conversations auto-saved to browser localStorage (max 50), grouped Today / Previous, click-to-restore with original source attribution; New Chat keeps documents untouched
 - 🔎 Local RAG: MiniLM-L6-v2 embeddings (384-dim) + FAISS exact search, top-3 chunks, ~1500-token bounded context
 - 📚 Accurate source attribution: Sources show only the documents that genuinely contributed retrieved context (deduplicated); programming-scope refusals never show sources
 - 🛡️ Programming-only guardrail via system-prompt engineering (with worked in-scope/out-of-scope examples)
@@ -50,7 +82,7 @@ purpose:
 - 🗂️ Chat Workspace: live session stats (messages, documents, sources used), New Chat (clears conversation, keeps documents), and Export Chat (downloads the conversation as Markdown)
 - 🔌 Mock mode: full UI + RAG pipeline works with no API key and zero quota usage
 - ⚠️ Graceful degradation: friendly messages for 429/401/5xx/network failures, never tracebacks
-- 🧪 71 automated backend tests (chunking, validation, ingestion, RAG, prompts, Groq mocks, WebSocket, API, chat orchestration)
+- 🧪 72 automated backend tests (chunking, validation, ingestion, RAG, prompts, Groq mocks, WebSocket, API, chat orchestration) + 85 frontend unit tests
 - 🌐 Responsive dark developer-tool UI; Enter-to-send, Shift+Enter newline, cancel/retry, connection badge
 
 ## 4. Architecture
@@ -107,7 +139,7 @@ devassist-chatbot/
 │   │   └── services/
 │   │       ├── chat.py          # turn orchestration: retrieve → build prompt → stream
 │   │       └── groq.py          # Groq streaming client; typed user-safe errors
-│   ├── tests/                   # 62 tests: chunker, validation, ingestion, rag,
+│   ├── tests/                   # 72 tests: chunker, validation, ingestion, rag,
 │   │                            # prompts, groq (mocked), ws, api
 │   ├── requirements.txt         # pinned deps (see torch CPU note below)
 │   └── .env                     # real secrets — git-ignored, never committed
@@ -120,7 +152,7 @@ devassist-chatbot/
 │   │   ├── composables/         # useWebSocket, useChat, useDocuments
 │   │   ├── services/            # config.js (URLs), api.js (REST), markdown.js
 │   │   └── assets/main.css      # TailwindCSS v4 entry
-│   └── tests/                   # 27 frontend unit tests (`npm test`)
+│   └── tests/                   # 85 frontend unit tests (`npm test`)
 ├── docs/
 │   ├── sample-knowledge.md      # original asyncio reference doc for RAG demo
 │   ├── ARCHITECTURE.md          # system, ingestion, RAG, WS, security
@@ -213,14 +245,14 @@ Production build: `npm run build` → `frontend/dist/`.
 
 ## 12. Running tests
 
-**Backend** (71 tests):
+**Backend** (72 tests):
 
 ```bash
 cd backend
 .venv/bin/pytest -q
 ```
 
-62 tests across 8 files; the suite forces `MOCK_GROQ=true` in
+72 tests across 8 files; the suite forces `MOCK_GROQ=true` in
 `tests/conftest.py`, so **no Groq quota is consumed** and no key is needed.
 Coverage: chunking (500/50, overlap, edge cases), file validation
 (extensions, sizes, malformed/truncated PDFs, empty files, latin-1
@@ -232,7 +264,7 @@ mapping, no traceback leakage, WebSocket protocol (tokens→done, sources,
 invalid payloads, binary frames, clean disconnect), REST upload/delete
 success and error paths.
 
-**Frontend** (37 tests):
+**Frontend** (85 tests):
 
 ```bash
 cd frontend
@@ -240,11 +272,16 @@ npm install
 npm test
 ```
 
-28 unit tests in `frontend/tests/unit.mjs` (Node + jsdom, no browser
+85 unit tests in `frontend/tests/unit.mjs` (Node + jsdom, no browser
 needed): markdown rendering incl. XSS sanitization (script tags, event
-handlers, `javascript:` URLs), and the `useChat` state machine — streaming
+handlers, `javascript:` URLs); the `useChat` state machine — streaming
 tokens, sources, done/error, send-blocked-while-generating, cancel, retry,
-malformed token payloads, blank-message rejection.
+malformed token payloads, blank-message rejection; the `useDocuments`
+upload queue — multi-file selection (2/9/67 files), max-2 concurrency,
+queued-file cancellation, in-flight abort, mixed valid/invalid files; and
+the `useChatHistory` store — conversation create/save/restore/switch,
+refresh persistence, auto-titles, empty-chat handling, malformed storage
+recovery, and the 50-conversation cap.
 
 ## 13. RAG pipeline explanation
 
