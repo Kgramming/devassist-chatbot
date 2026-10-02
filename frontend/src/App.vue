@@ -12,6 +12,8 @@ import Sidebar from './components/Sidebar.vue'
 import ChatWindow from './components/ChatWindow.vue'
 import ChatInput from './components/ChatInput.vue'
 import StatusBadge from './components/StatusBadge.vue'
+import KnowledgeBytesModal from './components/KnowledgeBytesModal.vue'
+import { buildKnowledgeBytesPrompt } from './services/knowledgeBytes.js'
 import { messagesToMarkdown, downloadTextFile, exportFilename } from './services/chatExport.js'
 
 const ws = useWebSocket()
@@ -31,6 +33,7 @@ const { conversations, activeId } = history
 const backendState = ref('checking') // checking | online | offline
 const groqConfigured = ref(false)
 const sidebarOpen = ref(false)
+const showKbModal = ref(false)
 let healthTimer = null
 
 const backendOnline = computed(() => backendState.value === 'online')
@@ -83,6 +86,18 @@ function handleSend(text) {
 
 function handleSuggestion(text) {
   handleSend(text)
+}
+
+function handleKnowledgeBytes({ code, language, context, maxBytes }) {
+  // Compose the Knowledge Bytes prompt and send through the normal chat
+  // pipeline. No backend changes — the template is model-agnostic.
+  try {
+    const prompt = buildKnowledgeBytesPrompt(code, { language, context, maxBytes })
+    showKbModal.value = false
+    handleSend(prompt)
+  } catch {
+    // Empty code is blocked by the modal's own validation; ignore.
+  }
 }
 
 onMounted(async () => {
@@ -204,6 +219,13 @@ onUnmounted(() => {
         :is-generating="isGenerating"
         @send="handleSend"
         @cancel="cancel()"
+        @open-knowledge-bytes="showKbModal = true"
+      />
+
+      <KnowledgeBytesModal
+        v-if="showKbModal"
+        @close="showKbModal = false"
+        @submit="handleKnowledgeBytes"
       />
     </div>
   </div>

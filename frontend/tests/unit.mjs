@@ -564,6 +564,44 @@ const sampleMessages = (text) => [
 // 12 & 14. Existing Chat Workspace/export/upload tests run in this suite
 // and must keep passing (verified by UNIT_PASS below).
 
+// --- knowledgeBytes: prompt builder ---
+const { buildKnowledgeBytesPrompt } = await import(`${FE}/services/knowledgeBytes.js`)
+
+{
+  const p = buildKnowledgeBytesPrompt('def foo():\n    pass', { language: 'Python' })
+  check('kb includes the code', p.includes('def foo():'))
+  check('kb has byte format', p.includes('### Byte [N]'))
+  check('kb has builds-on', p.includes('**Builds on:**'))
+  check('kb has putting-it-together', p.includes('PUTTING IT TOGETHER'))
+  check('kb uses language fence', p.includes('```python'))
+}
+
+{
+  const p = buildKnowledgeBytesPrompt('const x = 1;', {
+    language: 'JavaScript',
+    context: 'This is a Vue component',
+    maxBytes: 'aim for 6-10 bytes total',
+  })
+  check('kb includes context', p.includes('This is a Vue component'))
+  check('kb includes max bytes', p.includes('aim for 6-10 bytes total'))
+  check('kb mentions language', p.includes('written in JavaScript'))
+}
+
+{
+  let threw = false
+  try {
+    buildKnowledgeBytesPrompt('   ')
+  } catch {
+    threw = true
+  }
+  check('kb rejects empty code', threw)
+}
+
+{
+  const p = buildKnowledgeBytesPrompt('x = 1')
+  check('kb works without options', p.includes('x = 1') && p.includes('### Byte [N]'))
+}
+
 const failed = results.filter((r) => !r.pass)
 for (const r of results) console.log((r.pass ? 'PASS' : 'FAIL') + ' ' + r.name + (r.extra ? ' :: ' + r.extra : ''))
 console.log(failed.length ? `UNIT_FAIL: ${failed.length}` : `UNIT_PASS: ${results.length} tests`)

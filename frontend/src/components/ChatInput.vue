@@ -5,7 +5,7 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   isGenerating: { type: Boolean, default: false },
 })
-const emit = defineEmits(['send', 'cancel'])
+const emit = defineEmits(['send', 'cancel', 'open-knowledge-bytes'])
 
 const text = ref('')
 const ta = ref(null)
@@ -56,6 +56,20 @@ function onKeydown(e) {
         aria-label="Message DevAssist"
         class="max-h-[200px] flex-1 resize-none bg-transparent px-3 py-2 font-mono text-[13px] leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
       ></textarea>
+
+      <button
+        type="button"
+        @click="emit('open-knowledge-bytes')"
+        :disabled="disabled || isGenerating"
+        title="Break a code file into knowledge bytes"
+        aria-label="Open Knowledge Bytes explainer"
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-amber-300 transition-colors hover:bg-white/10 hover:text-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+        </svg>
+      </button>
 
       <button
         v-if="isGenerating"
