@@ -88,11 +88,11 @@ function handleSuggestion(text) {
   handleSend(text)
 }
 
-function handleKnowledgeBytes({ code, language, context, maxBytes }) {
+function handleKnowledgeBytes({ code, language, context, maxBytes, difficulty }) {
   // Compose the Knowledge Bytes prompt and send through the normal chat
   // pipeline. No backend changes — the template is model-agnostic.
   try {
-    const prompt = buildKnowledgeBytesPrompt(code, { language, context, maxBytes })
+    const prompt = buildKnowledgeBytesPrompt(code, { language, context, maxBytes, difficulty })
     showKbModal.value = false
     handleSend(prompt)
   } catch {

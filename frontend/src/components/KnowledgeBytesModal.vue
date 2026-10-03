@@ -7,6 +7,7 @@ const code = ref('')
 const language = ref('')
 const context = ref('')
 const maxBytes = ref('')
+const difficulty = ref('')
 
 const canSubmit = computed(() => code.value.trim().length > 0)
 
@@ -18,6 +19,7 @@ function onSubmit() {
     language: language.value.trim(),
     context: context.value.trim(),
     maxBytes: maxBytes.value.trim(),
+    difficulty: difficulty.value.trim(),
   })
 }
 
@@ -43,7 +45,7 @@ function onKeydown(e) {
         <div>
           <h2 class="text-[15px] font-semibold text-zinc-100">Knowledge Bytes</h2>
           <p class="mt-0.5 text-[12px] text-zinc-500">
-            Break a code file into small, digestible explanations — one concept per byte.
+            Architecture-first briefing — understand a codebase in ~10 seconds per byte.
           </p>
         </div>
         <button
@@ -108,7 +110,20 @@ function onKeydown(e) {
             id="kb-context"
             v-model="context"
             type="text"
-            placeholder="e.g. This is a Vue component — assume basic programming knowledge"
+            placeholder="e.g. This is a Vue component — part of the DevAssist frontend"
+            class="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[13px] text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500/50 focus:outline-none"
+          />
+        </div>
+
+        <div class="mt-3">
+          <label for="kb-difficulty" class="mb-1.5 block text-[12px] font-medium text-zinc-300">
+            Difficulty <span class="font-normal text-zinc-600">(optional)</span>
+          </label>
+          <input
+            id="kb-difficulty"
+            v-model="difficulty"
+            type="text"
+            placeholder="e.g. Assume basic programming knowledge"
             class="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[13px] text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500/50 focus:outline-none"
           />
         </div>

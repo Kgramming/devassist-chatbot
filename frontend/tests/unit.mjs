@@ -564,16 +564,20 @@ const sampleMessages = (text) => [
 // 12 & 14. Existing Chat Workspace/export/upload tests run in this suite
 // and must keep passing (verified by UNIT_PASS below).
 
-// --- knowledgeBytes: prompt builder ---
+// --- knowledgeBytes: prompt builder (architecture-first) ---
 const { buildKnowledgeBytesPrompt } = await import(`${FE}/services/knowledgeBytes.js`)
 
 {
   const p = buildKnowledgeBytesPrompt('def foo():\n    pass', { language: 'Python' })
   check('kb includes the code', p.includes('def foo():'))
-  check('kb has byte format', p.includes('### Byte [N]'))
-  check('kb has builds-on', p.includes('**Builds on:**'))
+  check('kb has 10-second rule', p.includes('10-SECOND RULE'))
+  check('kb has byte format', p.includes('BYTE N —'))
+  check('kb has role/flow/connects/why/key-code', 
+    p.includes('ROLE:') && p.includes('FLOW:') && p.includes('CONNECTS TO:') && p.includes('WHY:') && p.includes('KEY CODE:'))
+  check('kb has architecture-first order', p.includes('ARCHITECTURE-FIRST ORDER'))
   check('kb has putting-it-together', p.includes('PUTTING IT TOGETHER'))
   check('kb uses language fence', p.includes('```python'))
+  check('kb treats code as data (security)', p.includes('DATA TO EXPLAIN'))
 }
 
 {
@@ -581,10 +585,19 @@ const { buildKnowledgeBytesPrompt } = await import(`${FE}/services/knowledgeByte
     language: 'JavaScript',
     context: 'This is a Vue component',
     maxBytes: 'aim for 6-10 bytes total',
+    difficulty: 'Assume basic programming knowledge',
   })
   check('kb includes context', p.includes('This is a Vue component'))
   check('kb includes max bytes', p.includes('aim for 6-10 bytes total'))
+  check('kb includes difficulty', p.includes('Assume basic programming knowledge'))
   check('kb mentions language', p.includes('written in JavaScript'))
+}
+
+{
+  // DevAssist reference architecture is anchored when relevant.
+  const p = buildKnowledgeBytesPrompt('x = 1')
+  check('kb has DevAssist reference chain', p.includes('Vue UI → FastAPI'))
+  check('kb has mental-map arrows', p.includes('→'))
 }
 
 {
@@ -599,7 +612,7 @@ const { buildKnowledgeBytesPrompt } = await import(`${FE}/services/knowledgeByte
 
 {
   const p = buildKnowledgeBytesPrompt('x = 1')
-  check('kb works without options', p.includes('x = 1') && p.includes('### Byte [N]'))
+  check('kb works without options', p.includes('x = 1') && p.includes('BYTE N'))
 }
 
 const failed = results.filter((r) => !r.pass)
